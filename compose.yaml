@@ -1,0 +1,130 @@
+name: rootspan
+
+x-python-service: &python-service
+  image: rootspan-app:local
+  restart: unless-stopped
+  environment: &telemetry-environment
+    ROOTSPAN_OTEL_ENABLED: "true"
+    OTEL_EXPORTER_OTLP_ENDPOINT: http://rootspan-collector:4318
+  networks:
+    - rootspan
+    - signoz
+
+x-lab-service: &lab-service
+  <<: *python-service
+  command: ["rootspan-lab"]
+  healthcheck:
+    test:
+      [
+        "CMD",
+        "python",
+        "-c",
+        "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.environ['LAB_PORT'] + '/health', timeout=2)",
+      ]
+    interval: 5s
+    timeout: 3s
+    retries: 12
+    start_period: 5s
+
+services:
+  rootspan-collector:
+    image: signoz/signoz-otel-collector:latest
+    command: ["--config=/etc/rootspan-collector.yaml"]
+    restart: unless-stopped
+    volumes:
+      - ./ops/rootspan-collector.yaml:/etc/rootspan-collector.yaml:ro
+    networks:
+      - rootspan
+      - signoz
+
+  rootspan-api:
+    <<: *python-service
+    build:
+      context: .
+    depends_on:
+      - rootspan-collector
+    environment:
+      <<: *telemetry-environment
+      ROOTSPAN_HOST: 0.0.0.0
+      ROOTSPAN_PORT: "8001"
+      ROOTSPAN_DATABASE_PATH: /data/rootspan.db
+      ROOTSPAN_CORS_ORIGINS: http://localhost:5173
+    ports:
+      - "8001:8001"
+    volumes:
+      - rootspan-data:/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/api/v1/health', timeout=2)",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+  console:
+    build:
+      context: ./apps/rootspan-console
+    image: rootspan-console:local
+    restart: unless-stopped
+    depends_on:
+      rootspan-api:
+        condition: service_healthy
+    ports:
+      - "5173:80"
+    networks:
+      - rootspan
+
+  inventory:
+    <<: *lab-service
+    depends_on:
+      - rootspan-collector
+    environment:
+      <<: *telemetry-environment
+      SERVICE_ROLE: inventory
+      LAB_HOST: 0.0.0.0
+      LAB_PORT: "9003"
+      FAILURE_DELAY_SECONDS: "0.35"
+    ports:
+      - "9003:9003"
+
+  checkout:
+    <<: *lab-service
+    environment:
+      <<: *telemetry-environment
+      SERVICE_ROLE: checkout
+      LAB_HOST: 0.0.0.0
+      LAB_PORT: "9002"
+      INVENTORY_URL: http://inventory:9003
+    depends_on:
+      inventory:
+        condition: service_healthy
+    ports:
+      - "9002:9002"
+
+  gateway:
+    <<: *lab-service
+    environment:
+      <<: *telemetry-environment
+      SERVICE_ROLE: gateway
+      LAB_HOST: 0.0.0.0
+      LAB_PORT: "9001"
+      CHECKOUT_URL: http://checkout:9002
+    depends_on:
+      checkout:
+        condition: service_healthy
+    ports:
+      - "9001:9001"
+
+volumes:
+  rootspan-data:
+
+networks:
+  rootspan:
+  signoz:
+    external: true
+    name: signoz-network

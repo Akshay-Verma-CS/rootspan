@@ -1,0 +1,49 @@
+# macOS and editors
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+
+# Python
+.python-version.local
+.venv/
+.uv-cache/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyright/
+.coverage
+coverage.xml
+htmlcov/
+*.egg-info/
+build/
+dist/
+
+# Runtime state and telemetry captures
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.log
+telemetry-data/
+pours/
+
+# Upstream reference checkout (not part of RootSpan)
+/signoz/
+
+# Frontend
+node_modules/
+.pnpm-store/
+*.tsbuildinfo
+apps/rootspan-console/dist/
+apps/rootspan-console/coverage/
+apps/rootspan-console/playwright-report/
+apps/rootspan-console/test-results/

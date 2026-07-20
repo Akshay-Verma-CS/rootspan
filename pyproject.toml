@@ -1,0 +1,58 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "rootspan"
+version = "0.1.0"
+description = "Evidence-bound incident correlation for SigNoz"
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "httpx>=0.28,<1",
+  "opentelemetry-api>=1.35,<2",
+  "opentelemetry-exporter-otlp-proto-http>=1.35,<2",
+  "opentelemetry-instrumentation-fastapi>=0.56b0,<1",
+  "opentelemetry-instrumentation-httpx>=0.56b0,<1",
+  "opentelemetry-sdk>=1.35,<2",
+  "uvicorn[standard]>=0.34,<1",
+]
+
+[dependency-groups]
+dev = [
+  "pyright>=1.1.400,<2",
+  "pytest>=8.3,<10",
+  "pytest-cov>=6,<8",
+  "ruff>=0.11,<1",
+]
+
+[project.scripts]
+rootspan-api = "rootspan.api.main:main"
+rootspan-lab = "rootspan.lab.main:main"
+rootspan-smoke = "rootspan.lab.smoke:main"
+rootspan-traffic = "rootspan.lab.traffic:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rootspan"]
+
+[tool.pytest.ini_options]
+addopts = "--strict-config --strict-markers"
+testpaths = ["tests"]
+
+[tool.pyright]
+include = ["src", "tests"]
+pythonVersion = "3.13"
+typeCheckingMode = "strict"
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+extend-exclude = ["signoz"]
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "I", "RUF", "SIM", "UP"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

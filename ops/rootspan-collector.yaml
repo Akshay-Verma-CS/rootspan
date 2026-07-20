@@ -1,0 +1,61 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    send_batch_size: 256
+    send_batch_max_size: 512
+    timeout: 1s
+
+exporters:
+  clickhousetraces:
+    datasource: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_traces
+    low_cardinal_exception_grouping: false
+    use_new_schema: true
+    timeout: 45s
+    sending_queue:
+      enabled: false
+  signozclickhousemetrics:
+    dsn: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_metrics
+    timeout: 45s
+    sending_queue:
+      enabled: false
+  metadataexporter:
+    enabled: true
+    dsn: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_metadata
+    timeout: 45s
+    cache:
+      provider: in_memory
+
+extensions:
+  signoz_health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions:
+    - signoz_health_check
+  pipelines:
+    traces:
+      receivers:
+        - otlp
+      processors:
+        - batch
+      exporters:
+        - clickhousetraces
+        - metadataexporter
+    metrics:
+      receivers:
+        - otlp
+      processors:
+        - batch
+      exporters:
+        - signozclickhousemetrics
+        - metadataexporter
+  telemetry:
+    logs:
+      encoding: json

@@ -1,0 +1,199 @@
+{
+  "schema_version": "1.0",
+  "name": "inventory-cohort-timeout",
+  "target_operation": "checkout.place_order",
+  "requested_per_cohort": 5,
+  "match_dimensions": ["http.route", "region", "customer.tier"],
+  "healthy_traces": [
+    {
+      "trace_id": "00000000000000000000000000000001",
+      "root_operation": "POST /checkout",
+      "dimensions": {"http.route": "/checkout", "region": "ap-south-1", "customer.tier": "standard", "inventory.version": "v1", "flag.variant": "control"},
+      "spans": [
+        {"span_id": "h1-gw", "service": "gateway", "operation": "POST /checkout", "start_ms": 0, "duration_ms": 152, "status": "ok"},
+        {"span_id": "h1-co", "parent_span_id": "h1-gw", "service": "checkout", "operation": "checkout.place_order", "start_ms": 12, "duration_ms": 112, "status": "ok"},
+        {"span_id": "h1-in", "parent_span_id": "h1-co", "service": "inventory", "operation": "inventory.reserve", "start_ms": 28, "duration_ms": 61, "status": "ok"},
+        {"span_id": "h1-db", "parent_span_id": "h1-in", "service": "inventory-db", "operation": "SELECT stock", "start_ms": 38, "duration_ms": 20, "status": "ok"}
+      ],
+      "web_url": "http://localhost:8080/traces-explorer?traceId=00000000000000000000000000000001"
+    },
+    {
+      "trace_id": "00000000000000000000000000000002",
+      "root_operation": "POST /checkout",
+      "dimensions": {"http.route": "/checkout", "region": "ap-south-1", "customer.tier": "standard", "inventory.version": "v1", "flag.variant": "control"},
+      "spans": [
+        {"span_id": "h2-gw", "service": "gateway", "operation": "POST /checkout", "start_ms": 0, "duration_ms": 148, "status": "ok"},
+        {"span_id": "h2-co", "parent_span_id": "h2-gw", "service": "checkout", "operation": "checkout.place_order", "start_ms": 11, "duration_ms": 109, "status": "ok"},
+        {"span_id": "h2-in", "parent_span_id": "h2-co", "service": "inventory", "operation": "inventory.reserve", "start_ms": 27, "duration_ms": 58, "status": "ok"},
+        {"span_id": "h2-db", "parent_span_id": "h2-in", "service": "inventory-db", "operation": "SELECT stock", "start_ms": 37, "duration_ms": 19, "status": "ok"}
+      ],
+      "web_url": "http://localhost:8080/traces-explorer?traceId=00000000000000000000000000000002"
+    },
+    {
+      "trace_id": "00000000000000000000000000000003",
+      "root_operation": "POST /checkout",
+      "dimensions": {"http.route": "/checkout", "region": "ap-south-1", "customer.tier": "premium", "inventory.version": "v1", "flag.variant": "control"},
+      "spans": [
+        {"span_id": "h3-gw", "service": "gateway", "operation": "POST /checkout", "start_ms": 0, "duration_ms": 155, "status": "ok"},
+        {"span_id": "h3-co", "parent_span_id": "h3-gw", "service": "checkout", "operation": "checkout.place_order", "start_ms": 13, "duration_ms": 114, "status": "ok"},
+        {"span_id": "h3-in", "parent_span_id": "h3-co", "service": "inventory", "operation": "inventory.reserve", "start_ms": 29, "duration_ms": 63, "status": "ok"},
+        {"span_id": "h3-db", "parent_span_id": "h3-in", "service": "inventory-db", "operation": "SELECT stock", "start_ms": 40, "duration_ms": 21, "status": "ok"}
+      ],
+      "web_url": "http://localhost:8080/traces-explorer?traceId=00000000000000000000000000000003"
+    },
+    {
+      "trace_id": "00000000000000000000000000000004",
+      "root_operation": "POST /checkout",
+      "dimensions": {"http.route": "/checkout", "region": "ap-south-1", "customer.tier": "standard", "inventory.version": "v1", "flag.variant": "control"},
+      "spans": [
+        {"span_id": "h4-gw", "service": "gateway", "operation": "POST /checkout", "start_ms": 0, "duration_ms": 150, "status": "ok"},
+        {"span_id": "h4-co", "parent_span_id": "h4-gw", "service": "checkout", "operation": "checkout.place_order", "start_ms": 12, "duration_ms": 110, "status": "ok"},
+        {"span_id": "h4-in", "parent_span_id": "h4-co", "service": "inventory", "operation": "inventory.reserve", "start_ms": 28, "duration_ms": 60, "status": "ok"},
+        {"span_id": "h4-db", "parent_span_id": "h4-in", "service": "inventory-db", "operation": "SELECT stock", "start_ms": 39, "duration_ms": 20, "status": "ok"}
+      ],
+      "web_url": "http://localhost:8080/traces-explorer?traceId=00000000000000000000000000000004"
+    },
+    {
+      "trace_id": "00000000000000000000000000000005",
+      "root_operation": "POST /checkout",
+      "dimensions": {"http.route": "/checkout", "region": "ap-south-1", "customer.tier": "premium", "inventory.version": "v1", "flag.variant": "control"},
+      "spans": [
+        {"span_id": "h5-gw", "service": "gateway", "operation": "POST /checkout", "start_ms": 0, "duration_ms": 146, "status": "ok"},
+        {"span_id": "h5-co", "parent_span_id": "h5-gw", "service": "checkout", "operation": "checkout.place_order", "start_ms": 10, "duration_ms": 108, "status": "ok"},
+        {"span_id": "h5-in", "parent_span_id": "h5-co", "service": "inventory", "operation": "inventory.reserve", "start_ms": 25, "duration_ms": 57, "status": "ok"},
+        {"span_id": "h5-db", "parent_span_id": "h5-in", "service": "inventory-db", "operation": "SELECT stock", "start_ms": 35, "duration_ms": 18, "status": "ok"}
+      ],
+      "web_url": "http://localhost:8080/traces-explorer?traceId=00000000000000000000000000000005"
+    }
+  ],
+  "failing_traces": [
+    {
+      "trace_id": "10000000000000000000000000000001",
+      "root_operation": "POST /checkout",
+      "dimensions": {"http.route": "/checkout", "region": "ap-south-1", "customer.tier": "standard", "inventory.version": "v2", "flag.variant": "async-reserve"},
+      "spans": [
+        {"span_id": "f1-gw", "service": "gateway", "operation": "POST /checkout", "start_ms": 0, "duration_ms": 1102, "status": "error"},
+        {"span_id": "f1-co", "parent_span_id": "f1-gw", "service": "checkout", "operation": "checkout.place_order", "start_ms": 12, "duration_ms": 1064, "status": "error"},
+        {"span_id": "f1-in", "parent_span_id": "f1-co", "service": "inventory", "operation": "inventory.reserve", "start_ms": 29, "duration_ms": 1012, "status": "error", "error_type": "InventoryTimeout"},
+        {"span_id": "f1-db", "parent_span_id": "f1-in", "service": "inventory-db", "operation": "SELECT stock", "start_ms": 40, "duration_ms": 20, "status": "ok"}
+      ],
+      "web_url": "http://localhost:8080/traces-explorer?traceId=10000000000000000000000000000001"
+    },
+    {
+      "trace_id": "10000000000000000000000000000002",
+      "root_operation": "POST /checkout",
+      "dimensions": {"http.route": "/checkout", "region": "ap-south-1", "customer.tier": "standard", "inventory.version": "v2", "flag.variant": "async-reserve"},
+      "spans": [
+        {"span_id": "f2-gw", "service": "gateway", "operation": "POST /checkout", "start_ms": 0, "duration_ms": 1094, "status": "error"},
+        {"span_id": "f2-co", "parent_span_id": "f2-gw", "service": "checkout", "operation": "checkout.place_order", "start_ms": 11, "duration_ms": 1057, "status": "error"},
+        {"span_id": "f2-in", "parent_span_id": "f2-co", "service": "inventory", "operation": "inventory.reserve", "start_ms": 27, "duration_ms": 1007, "status": "error", "error_type": "InventoryTimeout"},
+        {"span_id": "f2-db", "parent_span_id": "f2-in", "service": "inventory-db", "operation": "SELECT stock", "start_ms": 38, "duration_ms": 19, "status": "ok"}
+      ],
+      "web_url": "http://localhost:8080/traces-explorer?traceId=10000000000000000000000000000002"
+    },
+    {
+      "trace_id": "10000000000000000000000000000003",
+      "root_operation": "POST /checkout",
+      "dimensions": {"http.route": "/checkout", "region": "ap-south-1", "customer.tier": "premium", "inventory.version": "v2", "flag.variant": "async-reserve"},
+      "spans": [
+        {"span_id": "f3-gw", "service": "gateway", "operation": "POST /checkout", "start_ms": 0, "duration_ms": 1110, "status": "error"},
+        {"span_id": "f3-co", "parent_span_id": "f3-gw", "service": "checkout", "operation": "checkout.place_order", "start_ms": 13, "duration_ms": 1070, "status": "error"},
+        {"span_id": "f3-in", "parent_span_id": "f3-co", "service": "inventory", "operation": "inventory.reserve", "start_ms": 30, "duration_ms": 1018, "status": "error", "error_type": "InventoryTimeout"},
+        {"span_id": "f3-db", "parent_span_id": "f3-in", "service": "inventory-db", "operation": "SELECT stock", "start_ms": 41, "duration_ms": 21, "status": "ok"}
+      ],
+      "web_url": "http://localhost:8080/traces-explorer?traceId=10000000000000000000000000000003"
+    },
+    {
+      "trace_id": "10000000000000000000000000000004",
+      "root_operation": "POST /checkout",
+      "dimensions": {"http.route": "/checkout", "region": "ap-south-1", "customer.tier": "standard", "inventory.version": "v2", "flag.variant": "async-reserve"},
+      "spans": [
+        {"span_id": "f4-gw", "service": "gateway", "operation": "POST /checkout", "start_ms": 0, "duration_ms": 1105, "status": "error"},
+        {"span_id": "f4-co", "parent_span_id": "f4-gw", "service": "checkout", "operation": "checkout.place_order", "start_ms": 12, "duration_ms": 1065, "status": "error"},
+        {"span_id": "f4-in", "parent_span_id": "f4-co", "service": "inventory", "operation": "inventory.reserve", "start_ms": 28, "duration_ms": 1014, "status": "error", "error_type": "InventoryTimeout"},
+        {"span_id": "f4-db", "parent_span_id": "f4-in", "service": "inventory-db", "operation": "SELECT stock", "start_ms": 39, "duration_ms": 20, "status": "ok"}
+      ],
+      "web_url": "http://localhost:8080/traces-explorer?traceId=10000000000000000000000000000004"
+    },
+    {
+      "trace_id": "10000000000000000000000000000005",
+      "root_operation": "POST /checkout",
+      "dimensions": {"http.route": "/checkout", "region": "ap-south-1", "customer.tier": "premium", "inventory.version": "v2", "flag.variant": "async-reserve"},
+      "spans": [
+        {"span_id": "f5-gw", "service": "gateway", "operation": "POST /checkout", "start_ms": 0, "duration_ms": 1098, "status": "error"},
+        {"span_id": "f5-co", "parent_span_id": "f5-gw", "service": "checkout", "operation": "checkout.place_order", "start_ms": 10, "duration_ms": 1060, "status": "error"},
+        {"span_id": "f5-in", "parent_span_id": "f5-co", "service": "inventory", "operation": "inventory.reserve", "start_ms": 26, "duration_ms": 1009, "status": "error", "error_type": "InventoryTimeout"},
+        {"span_id": "f5-db", "parent_span_id": "f5-in", "service": "inventory-db", "operation": "SELECT stock", "start_ms": 36, "duration_ms": 18, "status": "ok"}
+      ],
+      "web_url": "http://localhost:8080/traces-explorer?traceId=10000000000000000000000000000005"
+    }
+  ],
+  "external_evidence": [
+    {
+      "id": "log:inventory-timeout",
+      "signal": "log",
+      "operation_key": "inventory|inventory.reserve",
+      "supports": true,
+      "observation": "InventoryTimeout appeared in 5/5 failing traces and 0/5 healthy traces.",
+      "query_tool": "signoz_aggregate_logs",
+      "query_args": {"service": "inventory", "event.name": "inventory.reserve.timeout", "groupBy": ["inventory.version", "region"]},
+      "web_url": "http://localhost:8080/logs-explorer"
+    },
+    {
+      "id": "metric:inventory-duration",
+      "signal": "metric",
+      "operation_key": "inventory|inventory.reserve",
+      "supports": true,
+      "observation": "Inventory reserve p95 increased from 63 ms to 1.02 s for inventory-v2.",
+      "query_tool": "signoz_query_metrics",
+      "query_args": {"metric": "http.server.request.duration", "service": "inventory", "aggregation": "p95"},
+      "web_url": "http://localhost:8080/metrics-explorer"
+    },
+    {
+      "id": "change:async-reserve-enabled",
+      "signal": "change",
+      "operation_key": "inventory|inventory.reserve",
+      "supports": true,
+      "observation": "The async-reserve flag reached ap-south-1 three minutes before SLO burn began.",
+      "query_tool": "signoz_search_logs",
+      "query_args": {"event.name": "feature_flag.changed", "flag.key": "inventory.async_reserve"},
+      "web_url": "http://localhost:8080/logs-explorer"
+    },
+    {
+      "id": "metric:gateway-capacity-normal",
+      "signal": "metric",
+      "operation_key": "gateway|POST /checkout",
+      "supports": false,
+      "observation": "Gateway CPU, saturation, and self-duration stayed within the healthy range.",
+      "query_tool": "signoz_query_metrics",
+      "query_args": {"service": "gateway", "metrics": ["system.cpu.utilization", "http.server.active_requests"]},
+      "web_url": "http://localhost:8080/metrics-explorer"
+    },
+    {
+      "id": "metric:database-normal",
+      "signal": "metric",
+      "operation_key": "inventory-db|SELECT stock",
+      "supports": false,
+      "observation": "Database duration and error rate did not change between cohorts.",
+      "query_tool": "signoz_aggregate_traces",
+      "query_args": {"service": "inventory-db", "operation": "SELECT stock"},
+      "web_url": "http://localhost:8080/traces-explorer"
+    }
+  ],
+  "blast_radius": [
+    {"dimension": "region", "value": "ap-south-1", "affected": 48, "total": 200},
+    {"dimension": "inventory.version", "value": "v2", "affected": 48, "total": 52},
+    {"dimension": "flag.variant", "value": "async-reserve", "affected": 48, "total": 50},
+    {"dimension": "customer.tier", "value": "premium", "affected": 14, "total": 62}
+  ],
+  "timeline": [
+    {"occurred_at": "2026-07-20T03:57:00Z", "kind": "change", "title": "Async reserve enabled", "detail": "Feature flag enabled for inventory-v2 in ap-south-1.", "evidence_id": "change:async-reserve-enabled"},
+    {"occurred_at": "2026-07-20T04:00:00Z", "kind": "observation", "title": "Inventory latency diverged", "detail": "The first inventory timeout appeared before upstream errors.", "evidence_id": "log:inventory-timeout"},
+    {"occurred_at": "2026-07-20T04:02:00Z", "kind": "alert", "title": "Checkout SLO burn", "detail": "The upstream checkout availability alert entered firing state."}
+  ],
+  "next_queries": [
+    "Compare inventory.reserve by flag.variant and inventory.version for the last 15 minutes.",
+    "Inspect the first failing inventory trace before checkout errors became prevalent.",
+    "Confirm whether disabling async-reserve restores inventory self-duration without changing database latency."
+  ]
+}
