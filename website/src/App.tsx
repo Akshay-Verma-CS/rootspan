@@ -30,6 +30,7 @@ import {
   type ReactNode,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -42,6 +43,55 @@ import {
 } from "./content";
 
 const repositoryUrl = "https://github.com/Akshay-Verma-CS/rootspan";
+
+type MermaidApi = (typeof import("mermaid"))["default"];
+
+let mermaidApiPromise: Promise<MermaidApi> | undefined;
+
+function loadMermaid(): Promise<MermaidApi> {
+  mermaidApiPromise ??= import("mermaid").then(({ default: mermaid }) => {
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: "strict",
+      suppressErrorRendering: true,
+      theme: "base",
+      fontFamily: "SFMono-Regular, Cascadia Code, Roboto Mono, Consolas, monospace",
+      themeVariables: {
+        darkMode: true,
+        background: "#07111a",
+        primaryColor: "#0c2430",
+        primaryTextColor: "#edfaff",
+        primaryBorderColor: "#25f6e6",
+        secondaryColor: "#25152a",
+        secondaryTextColor: "#edfaff",
+        secondaryBorderColor: "#ff3ca6",
+        tertiaryColor: "#262817",
+        tertiaryTextColor: "#edfaff",
+        tertiaryBorderColor: "#f5f03d",
+        lineColor: "#25f6e6",
+        textColor: "#edfaff",
+        mainBkg: "#0c2430",
+        nodeBorder: "#25f6e6",
+        clusterBkg: "#09131d",
+        clusterBorder: "#3b5664",
+        edgeLabelBackground: "#07111a",
+        fontSize: "14px",
+      },
+      flowchart: {
+        htmlLabels: true,
+        useMaxWidth: true,
+        curve: "basis",
+      },
+      themeCSS: `
+        .nodeLabel, .edgeLabel { font-weight: 700; }
+        .edgeLabel { color: #edfaff; }
+        .labelBkg { background: #07111a; }
+      `,
+    });
+    return mermaid;
+  });
+  return mermaidApiPromise;
+}
 
 const sourceSlugMap: Readonly<Record<string, string>> = {
   "README.md": "overview",
@@ -511,11 +561,75 @@ function SiteFooter() {
   );
 }
 
-function MarkdownDocument({ document }: { document: ProjectDocument }) {
+function MarkdownDocument({ document: projectDocument }: { document: ProjectDocument }) {
+  const articleRef = useRef<HTMLElement>(null);
   const renderedMarkdown = useMemo(
-    () => marked.parse(document.markdown, { gfm: true }) as string,
-    [document.markdown],
+    () => marked.parse(projectDocument.markdown, { gfm: true }) as string,
+    [projectDocument.markdown],
   );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const renderDiagrams = async () => {
+      const mermaid = await loadMermaid();
+      const article = articleRef.current;
+      if (cancelled || !article) {
+        return;
+      }
+
+      const codeBlocks = Array.from(
+        article.querySelectorAll<HTMLElement>("pre > code.language-mermaid"),
+      );
+      if (codeBlocks.length === 0) {
+        return;
+      }
+
+      const sources = codeBlocks.map((code) => code.textContent ?? "");
+      const nodes = codeBlocks.map((code, index) => {
+        const frame = document.createElement("figure");
+        frame.className = "mermaid-diagram";
+
+        const diagram = document.createElement("div");
+        diagram.className = "mermaid";
+        diagram.textContent = sources[index];
+        diagram.setAttribute("role", "img");
+        diagram.setAttribute("aria-label", `${projectDocument.title} diagram ${index + 1}`);
+
+        frame.append(diagram);
+        code.parentElement?.replaceWith(frame);
+        return diagram;
+      });
+
+      try {
+        await mermaid.run({ nodes });
+      } catch {
+        nodes.forEach((node, index) => {
+          const frame = node.parentElement;
+          if (!frame) {
+            return;
+          }
+
+          const label = document.createElement("div");
+          label.className = "mermaid-error-label";
+          label.textContent = "Diagram unavailable — showing its source";
+
+          const pre = document.createElement("pre");
+          const code = document.createElement("code");
+          code.className = "language-mermaid";
+          code.textContent = sources[index];
+          pre.append(code);
+          frame.replaceChildren(label, pre);
+          frame.classList.add("has-error");
+        });
+      }
+    };
+
+    void renderDiagrams();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectDocument.title, renderedMarkdown]);
 
   const handleMarkdownClick = (event: ReactMouseEvent<HTMLElement>) => {
     const anchor = (event.target as HTMLElement).closest("a");
@@ -534,6 +648,7 @@ function MarkdownDocument({ document }: { document: ProjectDocument }) {
 
   return (
     <article
+      ref={articleRef}
       className="markdown-body"
       onClick={handleMarkdownClick}
       dangerouslySetInnerHTML={{ __html: renderedMarkdown }}

@@ -21,8 +21,8 @@ if (!html.includes("/rootspan/assets/")) {
 const assets = await readdir(assetsPath);
 const compiledScripts = assets.filter((name) => name.endsWith(".js"));
 const compiledStyles = assets.filter((name) => name.endsWith(".css"));
-if (compiledScripts.length !== 1 || compiledStyles.length !== 1) {
-  throw new Error("expected one compiled JavaScript bundle and one stylesheet");
+if (compiledScripts.length === 0 || compiledStyles.length === 0) {
+  throw new Error("expected compiled JavaScript and stylesheet assets");
 }
 
 for (const file of [...compiledScripts, ...compiledStyles]) {
@@ -37,7 +37,11 @@ if (socialPreview.size < 100_000) {
   throw new Error("social preview is missing or unexpectedly small");
 }
 
-const script = await readFile(join(assetsPath.pathname, compiledScripts[0]), "utf8");
+const script = (
+  await Promise.all(
+    compiledScripts.map((file) => readFile(join(assetsPath.pathname, file), "utf8")),
+  )
+).join("\n");
 for (const expectedTitle of [
   "RootSpan overview",
   "Stack & architecture",

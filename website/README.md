@@ -14,6 +14,8 @@ The website imports the repository's Markdown at build time rather than maintain
 
 Markdown is bundled into the static JavaScript artifact. GitHub Pages does not need an application server, database, runtime secret, or production telemetry credential.
 
+Fenced `mermaid` blocks are rendered lazily when a document opens. The renderer uses the site's high-contrast palette and strict Mermaid security mode; invalid diagrams retain a labeled source fallback instead of breaking the document reader.
+
 ## Local development
 
 ```sh

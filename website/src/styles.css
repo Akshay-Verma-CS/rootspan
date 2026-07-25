@@ -1133,6 +1133,70 @@ input:focus-visible {
 .markdown-body code { padding: 2px 5px; border: 1px solid rgba(37, 246, 230, 0.12); color: #9de7e2; background: rgba(37, 246, 230, 0.065); font-family: var(--mono); font-size: 0.88em; }
 .markdown-body pre { margin: 28px 0; padding: 24px; border: 1px solid var(--line); border-left: 3px solid var(--cyan); background: #050a10; overflow-x: auto; }
 .markdown-body pre code { padding: 0; border: 0; color: #aac3cb; background: none; font-size: 12px; line-height: 1.7; }
+.mermaid-diagram {
+  position: relative;
+  display: grid;
+  min-height: 240px;
+  margin: 34px 0;
+  padding: clamp(18px, 4vw, 38px);
+  border: 1px solid rgba(37, 246, 230, 0.3);
+  background:
+    linear-gradient(rgba(37, 246, 230, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(37, 246, 230, 0.035) 1px, transparent 1px),
+    #07111a;
+  background-size: 28px 28px;
+  place-items: center;
+  overflow-x: auto;
+  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px));
+}
+
+.mermaid-diagram::before {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 92px;
+  height: 3px;
+  background: var(--yellow);
+  content: "";
+}
+
+.mermaid-diagram .mermaid {
+  width: 100%;
+  min-width: 640px;
+  text-align: center;
+}
+
+.mermaid-diagram svg {
+  display: block;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+  margin: 0 auto;
+  filter: drop-shadow(0 0 18px rgba(37, 246, 230, 0.08));
+}
+
+.mermaid-diagram.has-error {
+  display: block;
+  border-color: rgba(245, 240, 61, 0.4);
+}
+
+.mermaid-diagram.has-error::before {
+  background: var(--magenta);
+}
+
+.mermaid-error-label {
+  margin-bottom: 12px;
+  color: var(--yellow);
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.mermaid-diagram.has-error pre {
+  margin: 0;
+}
 .markdown-body table { width: 100%; margin: 28px 0; border-collapse: collapse; font-size: 13px; }
 .markdown-body th { color: var(--ink); background: var(--cyan); text-align: left; }
 .markdown-body th,
@@ -1242,6 +1306,8 @@ input:focus-visible {
   .markdown-body h1 { font-size: 49px; }
   .markdown-body h2 { font-size: 31px; }
   .markdown-body table { display: block; overflow-x: auto; }
+  .mermaid-diagram { padding: 16px; place-items: start; }
+  .mermaid-diagram .mermaid { min-width: 620px; }
   .reader-end { align-items: flex-start; gap: 20px; flex-direction: column; }
 }
 
