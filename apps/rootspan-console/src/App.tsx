@@ -21,7 +21,7 @@ import {
   TerminalSquare,
 } from "lucide-react";
 
-import { listIncidents, replayGoldenIncident } from "./api";
+import { listIncidents, replayGoldenIncident, runLiveIncident } from "./api";
 import { compactTime, percent, ratio, shortId } from "./format";
 import type { DivergenceCandidate, Evidence, IncidentBrief } from "./types";
 
@@ -43,6 +43,16 @@ function App() {
       setSelectedId(incident.incident_id);
     },
   });
+  const liveMutation = useMutation({
+    mutationFn: runLiveIncident,
+    onSuccess: (newIncident) => {
+      queryClient.setQueryData<IncidentBrief[]>(["incidents"], (current = []) => [
+        newIncident,
+        ...current.filter((item) => item.incident_id !== newIncident.incident_id),
+      ]);
+      setSelectedId(newIncident.incident_id);
+    },
+  });
   const incidents = incidentsQuery.data ?? [];
   const incident =
     incidents.find((item) => item.incident_id === selectedId) ?? incidents[0] ?? null;
@@ -54,9 +64,11 @@ function App() {
   if (!incident) {
     return (
       <EmptyState
-        isPending={replayMutation.isPending}
-        error={replayMutation.error}
+        isReplayPending={replayMutation.isPending}
+        isLivePending={liveMutation.isPending}
+        error={liveMutation.error ?? replayMutation.error}
         onReplay={() => replayMutation.mutate()}
+        onLive={() => liveMutation.mutate()}
       />
     );
   }
@@ -69,8 +81,11 @@ function App() {
         selectedId={selectedId}
         onSelect={setSelectedId}
         isPending={replayMutation.isPending}
+        isLivePending={liveMutation.isPending}
         onReplay={() => replayMutation.mutate()}
+        onLive={() => liveMutation.mutate()}
       />
+      {liveMutation.error && <div className="error-message top-error">{liveMutation.error.message}</div>}
       <main>
         <IncidentHero incident={incident} />
         <div className="primary-grid">
@@ -97,15 +112,20 @@ function TopBar({
   selectedId,
   onSelect,
   isPending,
+  isLivePending,
   onReplay,
+  onLive,
 }: {
   incident: IncidentBrief;
   incidents: IncidentBrief[];
   selectedId: string | null;
   onSelect: (value: string) => void;
   isPending: boolean;
+  isLivePending: boolean;
   onReplay: () => void;
+  onLive: () => void;
 }) {
+  const isLiveEvidence = incident.scenario.startsWith("live-");
   return (
     <header className="topbar">
       <div className="brand">
@@ -113,7 +133,9 @@ function TopBar({
         <div><strong>RootSpan</strong><span>incident intelligence</span></div>
       </div>
       <div className="topbar-actions">
-        <div className="live-indicator"><span /> SigNoz connected</div>
+        <div className={`live-indicator ${isLiveEvidence ? "" : "replay"}`}>
+          <span /> {isLiveEvidence ? "Live SigNoz evidence" : "Replay evidence"}
+        </div>
         <select
           aria-label="Select incident"
           value={selectedId ?? incident.incident_id}
@@ -128,6 +150,10 @@ function TopBar({
         <button className="button secondary" onClick={onReplay} disabled={isPending}>
           {isPending ? <RefreshCw className="spin" size={16} /> : <Play size={16} />}
           Replay incident
+        </button>
+        <button className="button primary" onClick={onLive} disabled={isLivePending}>
+          {isLivePending ? <RefreshCw className="spin" size={16} /> : <Activity size={16} />}
+          Investigate live
         </button>
       </div>
     </header>
@@ -339,7 +365,19 @@ function LoadingState() {
   return <div className="center-state"><RefreshCw className="spin" size={28} /><h1>Loading incident state</h1></div>;
 }
 
-function EmptyState({ isPending, error, onReplay }: { isPending: boolean; error: Error | null; onReplay: () => void }) {
+function EmptyState({
+  isReplayPending,
+  isLivePending,
+  error,
+  onReplay,
+  onLive,
+}: {
+  isReplayPending: boolean;
+  isLivePending: boolean;
+  error: Error | null;
+  onReplay: () => void;
+  onLive: () => void;
+}) {
   return (
     <div className="empty-shell">
       <div className="empty-brand"><CircleDot size={22} /> RootSpan</div>
@@ -348,10 +386,16 @@ function EmptyState({ isPending, error, onReplay }: { isPending: boolean; error:
         <span>Evidence-bound incident correlation</span>
         <h1>Find the first broken thing,<br />not the loudest alert.</h1>
         <p>Replay the golden checkout incident to compare healthy and failing trace cohorts, rank the first local divergence, and compile a cited responder handoff.</p>
-        <button className="button primary" disabled={isPending} onClick={onReplay}>
-          {isPending ? <RefreshCw className="spin" size={17} /> : <Play size={17} />}
-          {isPending ? "Analyzing cohorts…" : "Run golden incident"}
-        </button>
+        <div className="empty-actions">
+          <button className="button primary" disabled={isLivePending} onClick={onLive}>
+            {isLivePending ? <RefreshCw className="spin" size={17} /> : <Activity size={17} />}
+            {isLivePending ? "Collecting SigNoz evidence…" : "Investigate live"}
+          </button>
+          <button className="button secondary" disabled={isReplayPending} onClick={onReplay}>
+            {isReplayPending ? <RefreshCw className="spin" size={17} /> : <Play size={17} />}
+            {isReplayPending ? "Analyzing replay…" : "Run golden replay"}
+          </button>
+        </div>
         {error && <div className="error-message">{error.message}</div>}
       </div>
     </div>

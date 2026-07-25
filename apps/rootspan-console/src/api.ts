@@ -22,3 +22,12 @@ export async function replayGoldenIncident(): Promise<IncidentBrief> {
   });
   return readJson<IncidentBrief>(response);
 }
+
+export async function runLiveIncident(): Promise<IncidentBrief> {
+  const response = await fetch("/api/v1/incidents/live", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ lookback_minutes: 15, cohort_size: 10 }),
+  });
+  return readJson<IncidentBrief>(response);
+}

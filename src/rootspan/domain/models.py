@@ -1,6 +1,6 @@
 """Validated domain models for incident correlation."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Literal
 
@@ -16,9 +16,128 @@ class DomainModel(BaseModel):
 class IncidentState(StrEnum):
     """Externally visible states of an incident investigation."""
 
+    RECEIVED = "RECEIVED"
+    COLLECTING = "COLLECTING"
+    COHORTING = "COHORTING"
+    ALIGNING = "ALIGNING"
+    CORROBORATING = "CORROBORATING"
+    COMPILING = "COMPILING"
     READY = "READY"
     INSUFFICIENT_EVIDENCE = "INSUFFICIENT_EVIDENCE"
     FAILED = "FAILED"
+    CLOSED = "CLOSED"
+
+
+class TimeWindow(DomainModel):
+    """A bounded, timezone-aware telemetry query window."""
+
+    start: datetime
+    end: datetime
+
+    @model_validator(mode="after")
+    def validate_window(self) -> "TimeWindow":
+        if self.start.tzinfo is None or self.end.tzinfo is None:
+            raise ValueError("telemetry query windows must be timezone-aware")
+        if self.end <= self.start:
+            raise ValueError("telemetry query window end must be after start")
+        if self.end - self.start > timedelta(hours=24):
+            raise ValueError("telemetry query windows must not exceed 24 hours")
+        return self
+
+
+class TraceSearch(DomainModel):
+    """Bounded trace cohort search independent of the backing gateway."""
+
+    operation: str
+    window: TimeWindow
+    error: bool
+    limit: int = Field(ge=1, le=100)
+
+
+class TraceRef(DomainModel):
+    """A lightweight trace reference returned during cohort discovery."""
+
+    trace_id: str
+    observed_at: datetime
+    web_url: str
+
+
+class LogQuery(DomainModel):
+    """Bounded stable-text log search."""
+
+    search_text: str
+    window: TimeWindow
+    service: str | None = None
+    limit: int = Field(default=20, ge=1, le=100)
+
+
+class LogRecord(DomainModel):
+    """Compact log observation used for cross-signal corroboration."""
+
+    observed_at: datetime
+    body: str
+    service: str | None = None
+    trace_id: str | None = None
+    web_url: str
+
+
+class AggregateQuery(DomainModel):
+    """One explainable telemetry aggregation."""
+
+    signal: Literal["traces", "logs"]
+    aggregation: Literal["count", "p50", "p95", "p99"]
+    window: TimeWindow
+    operation: str | None = None
+    aggregate_on: str | None = None
+    group_by: tuple[str, ...] = ()
+    error: bool | None = None
+    limit: int = Field(default=100, ge=1, le=1000)
+
+
+class AggregateRow(DomainModel):
+    """One group and value returned from a telemetry aggregation."""
+
+    dimensions: dict[str, str]
+    value: float
+
+
+class AggregateResult(DomainModel):
+    """Gateway-neutral aggregate result with a raw-data deep link."""
+
+    rows: tuple[AggregateRow, ...]
+    web_url: str
+
+
+class MetricQuery(DomainModel):
+    """Bounded metric query independent of SigNoz transport details."""
+
+    metric_name: str
+    window: TimeWindow
+    group_by: tuple[str, ...] = ()
+
+
+class MetricPoint(DomainModel):
+    """One timestamped metric value."""
+
+    observed_at: datetime
+    value: float
+    dimensions: dict[str, str] = Field(default_factory=dict)
+
+
+class MetricSeries(DomainModel):
+    """A compact metric result and its SigNoz provenance link."""
+
+    points: tuple[MetricPoint, ...]
+    web_url: str
+
+
+class IncidentProgress(DomainModel):
+    """Persisted incident state transition exposed to the console."""
+
+    incident_id: str
+    state: IncidentState
+    occurred_at: datetime
+    detail: str
 
 
 class SpanNode(DomainModel):
@@ -76,6 +195,8 @@ class Evidence(DomainModel):
     query_tool: str
     query_args: dict[str, JsonValue]
     web_url: str
+    response_hash: str | None = None
+    observed_at: datetime | None = None
 
 
 class DivergenceCandidate(DomainModel):

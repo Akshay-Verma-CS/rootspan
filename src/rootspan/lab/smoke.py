@@ -6,6 +6,8 @@ from dataclasses import dataclass
 
 import httpx
 
+from rootspan.api.contracts import IncidentProgressResponse
+from rootspan.domain import IncidentBrief, IncidentState
 from rootspan.lab.traffic import TrafficResult, generate_traffic
 
 
@@ -31,7 +33,7 @@ def _require_result(
 
 
 async def run_smoke(config: SmokeConfig) -> None:
-    """Exercise replay, healthy traffic, failure injection, and recovery."""
+    """Exercise replay, live correlation, failure injection, and recovery."""
     console_url = config.console_url.rstrip("/")
     inventory_url = config.inventory_url.rstrip("/")
     timeout = httpx.Timeout(5.0, connect=2.0)
@@ -45,15 +47,12 @@ async def run_smoke(config: SmokeConfig) -> None:
             json={"scenario": "inventory-cohort-timeout"},
         )
         replay.raise_for_status()
-        brief = replay.json()
-        candidates = brief.get("ranked_candidates", [])
-        if brief.get("state") != "READY" or not candidates:
+        brief = IncidentBrief.model_validate(replay.json(), extra="ignore")
+        if brief.state is not IncidentState.READY or not brief.ranked_candidates:
             raise RuntimeError("replay did not return a READY incident with candidates")
-        if candidates[0].get("operation_key") != "inventory|inventory.reserve":
+        if brief.ranked_candidates[0].operation_key != "inventory|inventory.reserve":
             raise RuntimeError("replay did not rank inventory.reserve first")
-        incident_id = brief.get("incident_id")
-        if not isinstance(incident_id, str):
-            raise RuntimeError("replay did not return an incident ID")
+        incident_id = brief.incident_id
         persisted = await client.get(f"{console_url}/api/v1/incidents/{incident_id}")
         persisted.raise_for_status()
         if persisted.json().get("incident_id") != incident_id:
@@ -82,6 +81,37 @@ async def run_smoke(config: SmokeConfig) -> None:
                 count=config.cohort_size,
             )
             _require_result(incident, expected_successes=0, label="incident cohort")
+
+            live_brief: IncidentBrief | None = None
+            for attempt in range(5):
+                live = await client.post(
+                    f"{console_url}/api/v1/incidents/live",
+                    json={"lookback_minutes": 15, "cohort_size": config.cohort_size},
+                )
+                live.raise_for_status()
+                candidate = IncidentBrief.model_validate(live.json(), extra="ignore")
+                if candidate.state is IncidentState.READY:
+                    live_brief = candidate
+                    break
+                if attempt < 4:
+                    await asyncio.sleep(1)
+            if live_brief is None:
+                raise RuntimeError("live SigNoz investigation did not become READY")
+            if not live_brief.ranked_candidates:
+                raise RuntimeError("live investigation returned no ranked candidates")
+            if live_brief.ranked_candidates[0].operation_key != "inventory|inventory.reserve":
+                raise RuntimeError("live investigation did not rank inventory.reserve first")
+            evidence_signals = {item.signal for item in live_brief.evidence}
+            if not {"trace", "log", "metric", "change", "topology"} <= evidence_signals:
+                raise RuntimeError(
+                    "live investigation did not return all required evidence signals"
+                )
+            live_incident_id = live_brief.incident_id
+            events = await client.get(f"{console_url}/api/v1/incidents/{live_incident_id}/events")
+            events.raise_for_status()
+            progress = IncidentProgressResponse.model_validate(events.json()).events
+            if not progress or progress[-1].state is not IncidentState.READY:
+                raise RuntimeError("live investigation lifecycle was not persisted through READY")
         finally:
             reset = await client.post(
                 f"{inventory_url}/scenario/failure",
@@ -95,11 +125,14 @@ async def run_smoke(config: SmokeConfig) -> None:
             count=1,
         )
         _require_result(recovered, expected_successes=1, label="recovery request")
+        # Allow the collector's one-second batch window to flush before storage assertions.
+        await asyncio.sleep(2)
 
     print(
         "smoke=passed "
         f"healthy={healthy.succeeded}/{healthy.attempted} "
         f"incident_failures={incident.failed}/{incident.attempted} "
+        f"live_incident={live_incident_id} "
         f"recovered={recovered.succeeded}/{recovered.attempted}"
     )
 

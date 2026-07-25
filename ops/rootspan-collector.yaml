@@ -25,6 +25,12 @@ exporters:
     timeout: 45s
     sending_queue:
       enabled: false
+  clickhouselogsexporter:
+    dsn: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_logs
+    timeout: 45s
+    use_new_schema: true
+    sending_queue:
+      enabled: false
   metadataexporter:
     enabled: true
     dsn: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_metadata
@@ -55,6 +61,14 @@ service:
         - batch
       exporters:
         - signozclickhousemetrics
+        - metadataexporter
+    logs:
+      receivers:
+        - otlp
+      processors:
+        - batch
+      exporters:
+        - clickhouselogsexporter
         - metadataexporter
   telemetry:
     logs:

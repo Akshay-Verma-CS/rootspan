@@ -1,13 +1,17 @@
 """Explainable cohort-based first-divergence ranking."""
 
+import json
 from collections import defaultdict
 from collections.abc import Callable, Iterable
 from datetime import UTC, datetime
+from hashlib import sha256
 from math import log2
 from statistics import median
 from time import perf_counter
 from typing import Literal
 from uuid import uuid4
+
+from pydantic import JsonValue
 
 from rootspan.domain import (
     CohortSummary,
@@ -38,7 +42,12 @@ class CorrelationAnalyzer:
         resolved_id = incident_id or str(uuid4())
         cohort = self._cohort_summary(scenario)
 
-        if not scenario.healthy_traces or not scenario.failing_traces:
+        if (
+            not scenario.healthy_traces
+            or not scenario.failing_traces
+            or cohort.coverage < 0.5
+            or min(cohort.healthy_count, cohort.failing_count) < 2
+        ):
             return self._insufficient_brief(
                 scenario,
                 incident_id=resolved_id,
@@ -165,6 +174,19 @@ class CorrelationAnalyzer:
             ]
             trace_evidence_id = f"trace-diff:{operation_key}"
             supporting.insert(0, trace_evidence_id)
+            query_args: dict[str, JsonValue] = {
+                "failingTraceIds": [trace.trace_id for trace in scenario.failing_traces],
+                "healthyTraceIds": [trace.trace_id for trace in scenario.healthy_traces],
+                "operationKey": operation_key,
+            }
+            response_payload = {
+                "failingTraces": [
+                    trace.model_dump(mode="json") for trace in scenario.failing_traces
+                ],
+                "healthyTraces": [
+                    trace.model_dump(mode="json") for trace in scenario.healthy_traces
+                ],
+            }
             trace_evidence.append(
                 Evidence(
                     id=trace_evidence_id,
@@ -175,13 +197,17 @@ class CorrelationAnalyzer:
                         f"Failing median {median(failing_durations):.1f} ms versus healthy "
                         f"{baseline_median:.1f} ms; local/self ratio {exclusive_ratio:.1f}x."
                     ),
-                    query_tool="fixture.compare_trace_cohorts",
-                    query_args={
-                        "failingTraceIds": [trace.trace_id for trace in scenario.failing_traces],
-                        "healthyTraceIds": [trace.trace_id for trace in scenario.healthy_traces],
-                        "operationKey": operation_key,
-                    },
+                    query_tool="rootspan.compare_trace_cohorts",
+                    query_args=query_args,
                     web_url=scenario.failing_traces[0].web_url,
+                    response_hash=sha256(
+                        json.dumps(
+                            response_payload,
+                            sort_keys=True,
+                            separators=(",", ":"),
+                        ).encode()
+                    ).hexdigest(),
+                    observed_at=self._clock(),
                 )
             )
 

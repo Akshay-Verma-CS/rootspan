@@ -22,10 +22,13 @@ Current local preflight on July 20:
 - Node `26.0.0`, npm `11.12.1`, and pnpm `11.9.0` are available.
 - System Python remains `3.9.6`; project commands must run through `uv`.
 
-Current implementation checkpoint:
+Current implementation checkpoint (July 26):
 
-- Days 1–5 have a working vertical demo slice: deterministic lab, live traces/metrics, replay cohorts, attribution-aware ranking, evidence/contradiction ledger, blast radius, SQLite API, and responder console.
-- Alert/MCP-driven live evidence collection and optional narration remain the next slices; replay deliberately does not pretend that those adapters already exist.
+- The deterministic lab now emits live traces, logs, metrics, and change events into SigNoz.
+- The Viewer-only MCP gateway builds live cohorts, fetches complete traces, queries logs, and uses Query Builder v5 for latency and blast-radius evidence.
+- Manual and alert-webhook investigations share a persisted state machine, deterministic ranker, SSE progress history, responder console, and explicit abstention path.
+- Bootstrap provisions the SigNoz incident dashboard, upstream checkout error-rate alert, and RootSpan webhook channel idempotently.
+- The optional narrator is cut from the critical path; no model is required for the completed evidence packet.
 
 ## Day 1 — SigNoz and telemetry spine
 
@@ -35,17 +38,17 @@ Current implementation checkpoint:
 - Emit correlated traces, structured logs, RED metrics, and comparison dimensions.
 - Verify exact evidence queries in SigNoz Query Builder and MCP.
 
-**Exit test:** a clean environment can generate one request and click from its log to the full trace in SigNoz.
+**Status:** complete; the live gate asserts correlated incident logs and complete three-service traces.
 
 ## Day 2 — reproducible incident and SLO detection
 
 - Implement the gateway/checkout/inventory path at minimum viable depth.
 - Add the scoped `inventory-v2` timeout injector and reset control.
 - Generate healthy traffic followed by a failing region/flag cohort.
-- Configure SLO/error-budget dashboard and alert.
+- Configure an upstream checkout error-rate dashboard and alert as the seeded SLO symptom.
 - Persist seeded ground truth for later evaluation.
 
-**Exit test:** the alert reliably fires upstream while the seeded first divergence remains downstream at `inventory.reserve`.
+**Status:** complete; SigNoz owns the gateway error-rate alert/webhook while the seeded first divergence remains downstream at `inventory.reserve`.
 
 ## Day 3 — cohort selection and trace alignment
 
@@ -55,7 +58,7 @@ Current implementation checkpoint:
 - Align the healthy/failing paths.
 - Implement coverage and “insufficient baseline” checks.
 
-**Exit test:** RootSpan can show several aligned trace pairs and identify candidate divergence nodes without an LLM.
+**Status:** complete without an LLM.
 
 ## Day 4 — cross-signal ranking
 
@@ -65,7 +68,7 @@ Current implementation checkpoint:
 - Ingest deployment/flag events from telemetry.
 - Record supporting and contradicting evidence with stable IDs.
 
-**Exit test:** `inventory.reserve` ranks first for explainable, inspectable reasons across repeated runs.
+**Status:** complete; live smoke requires trace, log, change, topology/contradiction, and quantitative trace-latency evidence with stored query provenance.
 
 ## Day 5 — blast radius and human brief
 
@@ -75,7 +78,7 @@ Current implementation checkpoint:
 - Add exact next queries, owner/runbook metadata, and SigNoz deep links.
 - Build the single-screen responder UI.
 
-**Exit test:** a responder can determine where the divergence begins, who is affected, and what to inspect next without reading terminal output.
+**Status:** complete in the responder console.
 
 ## Day 6 — agent layer and observability
 
@@ -85,7 +88,7 @@ Current implementation checkpoint:
 - Build agent-performance and incident-correlation dashboards.
 - Add replay fixtures and the low-confidence/abstention path if stable.
 
-**Exit test:** every factual statement in the brief maps to stored query evidence, and the investigation itself is traceable in SigNoz.
+**Status:** complete for deterministic correlation: query arguments, response hashes, deep links, contradictions, and stage spans are recorded. Optional model narration remains deliberately excluded.
 
 ## Day 7 — evaluation and presentation
 
@@ -97,6 +100,8 @@ Current implementation checkpoint:
 - Rehearse and record the four-minute demo.
 
 **Exit test:** five consecutive demos produce the same first-divergence result and a complete evidence packet.
+
+**Status:** presentation hardening remains: run and record the five-demo consistency check, reproduce from a clean clone, and finish the submission video/blog/AI disclosure. These are release tasks, not missing correlation-path implementation.
 
 ## Current repository structure
 

@@ -42,15 +42,16 @@ The estimate is intentionally coarse (roughly ±25%). The approximately seven-ho
 
 ## Selected libraries
 
-### Implementation checkpoint — July 20, 2026
+### Implementation checkpoint — July 26, 2026
 
-The fixture/replay vertical slice, deterministic correlation core, API, SQLite persistence, responder console, instrumented incident lab, Compose package, and live SigNoz trace/metric ingestion are implemented. The MCP/direct-v5 live investigation gateway, alert webhook, SSE progress stream, and optional narrator remain planned slices. This section distinguishes current dependencies from those future adapters.
+The fixture/replay and live vertical slices are implemented: deterministic correlation core, MCP/Query Builder gateway, alert webhook, persisted state machine, SSE progress, SQLite briefs, responder console, instrumented incident lab, Compose package, and live SigNoz traces/logs/metrics. The optional narrator and direct-HTTP fallback remain non-critical future adapters.
 
 ### RootSpan backend
 
-- FastAPI and Uvicorn: current versioned replay/incident API and future alert webhook.
+- FastAPI and Uvicorn: versioned replay/live APIs, alert webhook, and SSE progress.
 - Pydantic v2: external and internal typed contracts.
-- httpx: bounded incident-lab calls, traffic/smoke checks, and the future SigNoz adapter.
+- httpx: bounded incident-lab calls, traffic/smoke checks, and SigNoz bootstrap.
+- MCP Python SDK v1: read-only Streamable HTTP calls to SigNoz MCP.
 - Python standard-library `statistics` and interval logic: current bounded-cohort comparisons.
 - Standard-library `sqlite3` + SQLite: immutable compiled incident briefs.
 - OpenTelemetry Python SDK/exporters plus FastAPI/httpx instrumentation.
@@ -58,19 +59,19 @@ The fixture/replay vertical slice, deterministic correlation core, API, SQLite p
 - Ruff and Pyright strict mode for quality gates.
 - uv: Python runtime/dependency management and reproducible lockfile.
 
-The stable MCP Python SDK and direct Query Builder v5 adapter are the next data-access slice; add and lock them only when that implementation begins.
+The MCP SDK and Query Builder v5 execution path are implemented and locked. Add another data adapter only when a measured transport limitation requires it.
 
 Do not begin with pandas, SciPy, NetworkX, Celery, Redis, Kafka, PostgreSQL, a graph database, or a vector database. Add a dependency only when a measured need appears.
 
 ### Incident lab
 
 - FastAPI/HTTPX with shared OpenTelemetry Python SDK, OTLP exporters, and instrumentation.
-- Structured JSON logs enriched with trace/span IDs on stdout; OTLP traces and metrics are live.
+- Structured JSON logs enriched with trace/span IDs; OTLP traces, logs, and metrics are live.
 - One role-configured entry point selected by `SERVICE_ROLE` for gateway, checkout, inventory, and traffic-generator processes.
 - Shared Pydantic configuration and scenario contracts, with isolated state per process.
 - pytest contract tests for handlers, propagation, failure control, and reset behavior.
 
-Use OTLP for traces and metrics. Keep JSON-to-Collector log collection as the stable path because the OpenTelemetry Python logs API/SDK is still under development.
+Use OTLP for traces, metrics, and logs. The lab still emits structured JSON bodies so event names and trace/span correlation remain deterministic after OTLP export.
 
 ### Responder console
 
@@ -80,7 +81,7 @@ Use OTLP for traces and metrics. Keep JSON-to-Collector log collection as the st
 - CSS-native service cascade, cohort comparison, evidence ledger, blast radius, and timeline.
 - Vitest for component logic plus production-proxy desktop/mobile browser smoke checks.
 
-SSE progress and a richer aligned-trace interaction can be added when the live investigation stages exist; the MVP does not carry React Flow, ECharts, or Playwright dependencies.
+The API exposes both persisted progress snapshots and SSE. The console stays dependency-light and does not carry React Flow or ECharts.
 
 Use a custom visual system with a single incident screen. Do not spend the sprint assembling a generic dashboard framework.
 
@@ -131,20 +132,20 @@ flowchart TB
     UI -- "deep links" --> SN
 ```
 
-## Target live runtime flow
+## Live runtime flow
 
-1. A SigNoz trace/metric alert calls `POST /api/v1/webhooks/signoz` with an Alertmanager-compatible payload.
+1. The bootstrapped SigNoz trace-based checkout error-rate alert calls `POST /api/v1/webhooks/signoz` with an Alertmanager-compatible payload.
 2. RootSpan deduplicates updates using the alert fingerprint and creates an incident state record.
-3. The window builder derives incident and baseline windows from `startsAt`, alert labels, and a stabilization offset.
+3. The window builder bounds the query from `startsAt` and the configured maximum lookback; healthy and failing cohorts are selected from that same comparable window.
 4. The SigNoz gateway programmatically calls MCP tools:
    - `signoz_search_traces` for candidate failing and healthy traces;
    - `signoz_get_trace_details` for bounded complete trace retrieval;
-   - `signoz_search_logs` and `signoz_aggregate_logs` for log evidence;
-   - `signoz_aggregate_traces` and `signoz_query_metrics` for distribution/blast-radius evidence;
-   - `signoz_execute_builder_query` only for shapes the higher-level tools cannot express.
-5. Complete-trace requests run with bounded concurrency and retry/backoff. Every call stores tool name, typed arguments, time range, response hash, deep link, duration, and status.
+   - `signoz_search_logs` for timeout and change-event evidence;
+   - `signoz_execute_builder_query` for trace-latency and blast-radius aggregations;
+   - `signoz_query_metrics` through the typed gateway when a bounded follow-up metric is requested.
+5. Complete-trace requests run with bounded concurrency and explicit transport timeouts. Evidence-producing results store the tool name, typed arguments, time range, response hash, observation time, and deep link. Per-call latency/status persistence and retry/backoff remain future hardening.
 6. The deterministic correlation pipeline produces ranked candidates and evidence grades.
-7. The optional model turns the evidence bundle into concise prose and next-query suggestions.
+7. A future optional model may turn the evidence bundle into concise prose and bounded next-query suggestions; it is not part of the current runtime path.
 8. The API streams stage changes to the console over SSE.
 9. The responder follows deep links into SigNoz and decides what to do.
 
@@ -156,9 +157,9 @@ All SigNoz access sits behind one Python protocol:
 
 ```text
 TelemetryGateway
-  search_trace_ids(query) -> Page[TraceRef]
+  search_trace_ids(query) -> tuple[TraceRef, ...]
   get_trace(trace_id, window) -> TraceGraph
-  search_logs(query) -> Page[LogRecord]
+  search_logs(query) -> tuple[LogRecord, ...]
   aggregate(signal_query) -> AggregateResult
   query_metrics(query) -> MetricSeries
 ```
@@ -166,8 +167,9 @@ TelemetryGateway
 Implementations:
 
 1. `McpSigNozGateway` — primary hackathon adapter using stable MCP Python SDK v1.x over Streamable HTTP.
-2. `ApiSigNozGateway` — Query Builder v5 fallback and contract-test oracle.
-3. `FixtureTelemetryGateway` — deterministic replay and unit tests.
+2. `FixtureTelemetryGateway` — deterministic replay and contract tests.
+
+Direct Query Builder v5 execution is encapsulated inside the MCP adapter. A separate direct-HTTP adapter remains only a fallback if the MCP transport becomes unavailable.
 
 The core correlation packages must import the protocol and domain types, never MCP or HTTP response types.
 
@@ -187,7 +189,7 @@ Any stage -> FAILED
 Resolved webhook -> CLOSED
 ```
 
-Persist the transition and stage input/output references before moving forward. On restart, the process can requeue a non-terminal incident from its last completed stage. This gives enough durability without Celery or Temporal.
+Persist each transition before moving forward. The complete ordered history remains inspectable after a restart; automatic requeue/resume of a non-terminal incident is future work. This provides an auditable lifecycle without adding Celery or Temporal.
 
 ## Core domain contracts
 
@@ -285,15 +287,13 @@ Ask SigNoz to aggregate both affected and total requests by bounded dimensions, 
 
 The MVP stores an immutable `IncidentBrief` JSON document in one `incident_briefs` table keyed by incident ID, with completion time and state indexed in columns. This is sufficient for replay, listing, and restart persistence without an ORM.
 
-When live multi-stage collection lands, split the state into:
+Live multi-stage collection uses:
 
 - `incidents`
 - `stage_runs`
-- `evidence`
-- `candidates`
-- `briefs`
+- `incident_briefs`
 
-Store query payloads and compact selected observations. Store response hashes and fixture references rather than duplicating the whole telemetry backend indefinitely. Export one completed incident as versioned JSON fixtures for replay mode.
+Evidence and candidates are stored inside the immutable validated brief, while stage transitions are normalized for ordered progress. Query payloads, selected observations, response hashes, and deep links are retained without duplicating raw telemetry.
 
 ## Deployment
 
@@ -307,13 +307,14 @@ The bridge accepts application OTLP and uses SigNoz's ClickHouse exporters again
 A small Makefile provides:
 
 ```text
-foundryctl cast  # provision SigNoz + MCP from casting.yaml
-make app-up      # build and health-check the complete RootSpan application
-make healthy     # generate baseline traffic
-make incident    # inject the scoped failure and generate failing traffic
-make reset       # reset only the demo scenario
-make verify      # local static/unit/frontend gate
-make live-verify # production proxy + live chain + SigNoz storage assertions
+foundryctl cast       # provision SigNoz + MCP from casting.yaml
+make bootstrap-signoz # Viewer runtime key + dashboard + alert + webhook
+make app-up           # build and health-check the complete RootSpan application
+make healthy          # generate baseline traffic
+make incident         # inject the scoped failure and generate failing traffic
+make reset            # reset only the demo scenario
+make verify           # local static/unit/frontend gate
+make live-verify      # production proxy + live chain + SigNoz storage assertions
 ```
 
 RootSpan and the lab export OTLP to the application collector over Docker DNS. The collector and application services join Foundry's external `signoz-network`; no host-gateway routing is required.

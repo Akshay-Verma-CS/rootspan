@@ -33,6 +33,7 @@ button { cursor: pointer; }
 .topbar-actions { display: flex; align-items: center; gap: 12px; }
 .live-indicator { color: #aeb8c7; font-size: 12px; display: flex; align-items: center; gap: 7px; }
 .live-indicator span { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 12px rgba(114, 214, 156, .75); }
+.live-indicator.replay span { background: #7f8b9b; box-shadow: none; }
 select { min-width: 220px; color: #c7d0dc; background: #0d1219; border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; font-size: 12px; }
 .button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid transparent; border-radius: 8px; padding: 10px 15px; font-weight: 600; font-size: 12px; transition: .2s ease; }
 .button:disabled { opacity: .6; cursor: wait; }
@@ -159,7 +160,9 @@ main { width: min(1460px, calc(100% - 60px)); margin: 0 auto; padding: 38px 0 70
 .empty-card > span { color: var(--cyan); font-size: 10px; text-transform: uppercase; letter-spacing: .14em; }
 .empty-card h1 { margin: 14px 0; font-size: clamp(31px, 5vw, 51px); line-height: 1.06; letter-spacing: -.055em; }
 .empty-card p { max-width: 540px; margin: 0 auto 25px; color: #939faf; line-height: 1.7; font-size: 13px; }
+.empty-actions { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
 .error-message { margin-top: 15px; color: var(--red); font-size: 11px; }
+.top-error { width: min(1460px, calc(100% - 48px)); margin: 12px auto 0; }
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 

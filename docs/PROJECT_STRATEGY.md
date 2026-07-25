@@ -54,6 +54,10 @@ The incident brief shows:
 
 RootSpan labels this a ranked hypothesis, not incontrovertible root cause.
 
+### Failure-testing boundary
+
+The current incident lab uses a deterministic, scoped fault injector to create the golden timeout scenario. Traffic volume is bounded, the switch is resettable, and the smoke gate asserts recovery. That is controlled fault injection, not a claim that RootSpan is a chaos-engineering platform. A true chaos layer would additionally require explicit steady-state hypotheses, safety aborts, experiment scheduling, broader fault types, and persisted experiment outcomes.
+
 ## Investigation pipeline
 
 ### 1. Detect meaningful impact

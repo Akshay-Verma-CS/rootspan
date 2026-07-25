@@ -1,4 +1,14 @@
-export type IncidentState = "READY" | "INSUFFICIENT_EVIDENCE" | "FAILED";
+export type IncidentState =
+  | "RECEIVED"
+  | "COLLECTING"
+  | "COHORTING"
+  | "ALIGNING"
+  | "CORROBORATING"
+  | "COMPILING"
+  | "READY"
+  | "INSUFFICIENT_EVIDENCE"
+  | "FAILED"
+  | "CLOSED";
 export type Confidence = "high" | "medium" | "low" | "insufficient";
 
 export interface Evidence {
@@ -10,6 +20,8 @@ export interface Evidence {
   query_tool: string;
   query_args: Record<string, unknown>;
   web_url: string;
+  response_hash?: string | null;
+  observed_at?: string | null;
 }
 
 export interface DivergenceCandidate {

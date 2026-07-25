@@ -39,6 +39,9 @@ services:
 
   rootspan-api:
     <<: *python-service
+    env_file:
+      - path: .env.rootspan
+        required: false
     build:
       context: .
     depends_on:
@@ -49,6 +52,8 @@ services:
       ROOTSPAN_PORT: "8001"
       ROOTSPAN_DATABASE_PATH: /data/rootspan.db
       ROOTSPAN_CORS_ORIGINS: http://localhost:5173
+      ROOTSPAN_MCP_ENDPOINT: http://signoz-mcp:8000/mcp
+      ROOTSPAN_SIGNOZ_PUBLIC_URL: http://localhost:8080
     ports:
       - "8001:8001"
     volumes:

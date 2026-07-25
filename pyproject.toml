@@ -11,6 +11,7 @@ requires-python = ">=3.13,<3.14"
 dependencies = [
   "fastapi>=0.115,<1",
   "httpx>=0.28,<1",
+  "mcp>=1.28.1,<2",
   "opentelemetry-api>=1.35,<2",
   "opentelemetry-exporter-otlp-proto-http>=1.35,<2",
   "opentelemetry-instrumentation-fastapi>=0.56b0,<1",
@@ -29,6 +30,7 @@ dev = [
 
 [project.scripts]
 rootspan-api = "rootspan.api.main:main"
+rootspan-bootstrap-signoz = "rootspan.bootstrap:main"
 rootspan-lab = "rootspan.lab.main:main"
 rootspan-smoke = "rootspan.lab.smoke:main"
 rootspan-traffic = "rootspan.lab.traffic:main"

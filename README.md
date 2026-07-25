@@ -18,19 +18,23 @@ It gives the responder a decision-ready incident brief:
 
 RootSpan does **not** modify code or infrastructure. It reduces time to investigate and resolve while the human retains operational authority.
 
-## Implemented MVP
+## Implemented product slice
 
 The current build includes:
 
 - a deterministic, attribution-aware healthy/failing trace-cohort analyzer;
 - a strict evidence model with supporting and contradicting signals, blast radius, timeline, and next queries;
-- a versioned FastAPI replay API with SQLite persistence;
+- fixture and live MCP gateways returning the same strict telemetry contracts;
+- bounded MCP trace/log queries plus Query Builder v5 latency and blast-radius aggregation;
+- a persisted incident state machine, fingerprint-idempotent SigNoz webhook, and SSE progress feed;
+- a versioned FastAPI replay/live API with SQLite persistence;
 - a responsive React responder console served by Nginx;
 - a three-service OpenTelemetry incident lab with a scoped, resettable inventory timeout;
-- a local collector bridge that exports lab traces and metrics into Foundry's SigNoz store;
-- fixture, API, persistence, incident-lab, frontend, browser, Compose, and live-ingestion checks.
+- a local collector bridge that exports lab traces, logs, metrics, and RootSpan stage spans into SigNoz;
+- idempotent bootstrap of a Viewer-only runtime key, webhook channel, error-rate alert, and incident dashboard;
+- fixture, API, gateway, persistence, webhook, incident-lab, frontend, Compose, and live-SigNoz checks.
 
-Live SigNoz query/MCP-backed incident collection is the next integration slice. The checked-in replay fixture already uses the same domain contracts and correlation path as that adapter will use.
+The optional LLM narrator is intentionally not on the critical path. Ranking, abstention, evidence, replay, and live correlation remain deterministic and usable without a model.
 
 ## Quickstart
 
@@ -49,11 +53,14 @@ export PATH="$HOME/.local/bin:$PATH"
 foundryctl gauge
 foundryctl forge
 foundryctl cast
+make bootstrap-signoz
 make app-up
 make live-verify
 ```
 
-`make live-verify` proves replay through the production proxy, SQLite persistence, healthy and failing cohorts, reset recovery, three-service trace propagation, error statuses, and custom metric ingestion. The failure switch is reset even if the incident assertion fails.
+`make bootstrap-signoz` stores ignored owner-only bootstrap/runtime files, gives the runtime service account only `signoz-viewer`, and provisions the RootSpan dashboard, checkout error-rate alert, and webhook channel. It is safe to rerun and never prints credentials.
+
+`make live-verify` proves replay and live MCP correlation through the production proxy, ordered SQLite state transitions, trace/log/change/topology evidence plus a quantitative latency comparison, reset recovery, three-service propagation, custom metric ingestion, and RootSpan's own stage spans. The failure switch is reset even if an assertion fails.
 
 Running endpoints:
 
@@ -66,6 +73,9 @@ Running endpoints:
 | Inventory lab role | `http://localhost:9003/health` |
 | SigNoz | `http://localhost:8080` |
 | SigNoz MCP health | `http://localhost:8000/livez` |
+| Manual live investigation | `POST http://localhost:8001/api/v1/incidents/live` |
+| SigNoz alert webhook | `POST http://localhost:8001/api/v1/webhooks/signoz` |
+| Incident progress | `GET /api/v1/incidents/{id}/events` or `/events/stream` |
 
 Useful commands:
 
@@ -75,8 +85,15 @@ make incident      # enable the scoped fault and send ten failing requests
 make reset         # disable only the demo fault
 make live-smoke    # replay + baseline + incident + recovery assertions
 make telemetry-check
+make test-webhook  # after app-up; sends a real SigNoz test notification
 make app-down      # stop RootSpan; keep its SQLite volume
 ```
+
+## Failure-testing boundary
+
+The incident lab uses deterministic fault injection: one scoped inventory timeout, a bounded traffic cohort, an explicit reset, and a recovery assertion. This makes the demo reproducible and safe. It is not presented as a chaos-engineering platform; randomized experiments, steady-state hypotheses, abort policies, and experiment scheduling are outside the current slice.
+
+Current limits are deliberate: the bootstrap creates a trace-based checkout error-rate threshold alert rather than a formal multi-window SLO burn alert, live correlation covers one seeded timeout scenario, automatic restart/resume is not implemented, and the optional LLM narrator and direct-HTTP SigNoz fallback remain excluded from the critical path.
 
 Generated Foundry output under `pours/` is intentionally ignored; `casting.yaml` and `casting.yaml.lock` are the reproducible inputs.
 

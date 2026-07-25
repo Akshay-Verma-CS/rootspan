@@ -33,13 +33,14 @@ def create_app(
 ) -> FastAPI:
     """Create the RootSpan API with explicit versioned routes."""
     resolved_settings = settings or Settings.from_environment()
-    resolved_services = services or AppServices.create(resolved_settings.database_path)
+    resolved_services = services or AppServices.create(resolved_settings)
     application = FastAPI(
         title="RootSpan API",
         summary="Evidence-bound incident correlation for SigNoz",
         version=__version__,
     )
     application.state.services = resolved_services
+    application.state.settings = resolved_settings
     application.add_middleware(
         CORSMiddleware,
         allow_origins=list(resolved_settings.cors_origins),
