@@ -115,6 +115,17 @@ Project documents:
 - [Development workflow](docs/DEVELOPMENT_WORKFLOW.md)
 - [Coding-agent operating guide](AGENTS.md)
 
+## Project website
+
+The static product and architecture website lives in [`website/`](website/README.md). It presents the system architecture, Sentinel Mesh, evidence protocol, and every repository guide through a searchable cyberpunk-inspired document reader. The source Markdown is imported at build time, so the website and repository documentation cannot silently drift.
+
+```sh
+pnpm --dir website install
+pnpm --dir website verify
+```
+
+Pushes to `main` that change the website or project documentation trigger `.github/workflows/pages.yml`, which verifies and publishes the static artifact to GitHub Pages.
+
 Hackathon alignment:
 
 - Target track: **AI & Agent Observability**

@@ -1,6 +1,6 @@
 .PHONY: app-down app-up bootstrap-signoz format frontend-build frontend-sync frontend-test \
 	frontend-typecheck frontend-verify healthy incident lint live-smoke live-verify \
-	reset run-api sync telemetry-check test test-webhook typecheck verify
+	reset run-api site-verify sync telemetry-check test test-webhook typecheck verify
 
 UV_CACHE_DIR ?= .uv-cache
 export UV_CACHE_DIR
@@ -37,6 +37,9 @@ frontend-build:
 frontend-verify: frontend-typecheck frontend-test frontend-build
 
 verify: lint typecheck test frontend-verify
+
+site-verify:
+	pnpm --dir website verify
 
 run-api:
 	uv run --no-sync rootspan-api
