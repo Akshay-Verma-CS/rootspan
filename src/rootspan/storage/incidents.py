@@ -1,10 +1,15 @@
 """Small SQLite repository for immutable compiled incident briefs."""
 
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
-from rootspan.domain import IncidentBrief, IncidentProgress, IncidentState
+from rootspan.domain import (
+    IncidentBrief,
+    IncidentProgress,
+    IncidentState,
+    SentinelLeaderLease,
+)
 
 
 class IncidentRepository:
@@ -55,6 +60,17 @@ class IncidentRepository:
                 """
                 CREATE INDEX IF NOT EXISTS idx_stage_runs_incident
                 ON stage_runs (incident_id, id)
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS sentinel_leases (
+                    incident_id TEXT PRIMARY KEY,
+                    leader_id TEXT NOT NULL,
+                    generation INTEGER NOT NULL,
+                    expires_at TEXT NOT NULL,
+                    FOREIGN KEY (incident_id) REFERENCES incidents(incident_id)
+                )
                 """
             )
 
@@ -194,6 +210,78 @@ class IncidentRepository:
             )
             for row in rows
         )
+
+    def elect_sentinel_leader(
+        self,
+        *,
+        incident_id: str,
+        candidates: tuple[str, ...],
+        occurred_at: datetime,
+        lease_ttl: timedelta,
+        force_failover: bool = False,
+    ) -> SentinelLeaderLease:
+        """Elect or retain one incident leader using an atomic SQLite lease."""
+
+        if not candidates or any(not item for item in candidates):
+            raise ValueError("sentinel leader candidates must be named")
+        if len(candidates) != len(set(candidates)):
+            raise ValueError("sentinel leader candidates must be unique")
+        if occurred_at.tzinfo is None:
+            raise ValueError("sentinel leader election time must be timezone-aware")
+        if lease_ttl <= timedelta(0):
+            raise ValueError("sentinel leader lease TTL must be positive")
+        first_candidate = next(iter(candidates))
+
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                """
+                SELECT leader_id, generation, expires_at
+                FROM sentinel_leases
+                WHERE incident_id = ?
+                """,
+                (incident_id,),
+            ).fetchone()
+            current_leader = str(row[0]) if row is not None else None
+            current_generation = int(row[1]) if row is not None else 0
+            current_expiry = datetime.fromisoformat(str(row[2])) if row is not None else None
+            if (
+                current_leader in candidates
+                and current_expiry is not None
+                and current_expiry > occurred_at
+                and not force_failover
+            ):
+                return SentinelLeaderLease(
+                    incident_id=incident_id,
+                    leader_id=current_leader,
+                    generation=current_generation,
+                    expires_at=current_expiry,
+                )
+
+            if current_leader in candidates and len(candidates) > 1:
+                next_index = (candidates.index(current_leader) + 1) % len(candidates)
+                leader_id = candidates[next_index]
+            else:
+                leader_id = first_candidate
+            generation = current_generation + 1
+            expires_at = occurred_at + lease_ttl
+            connection.execute(
+                """
+                INSERT INTO sentinel_leases (incident_id, leader_id, generation, expires_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(incident_id) DO UPDATE SET
+                    leader_id = excluded.leader_id,
+                    generation = excluded.generation,
+                    expires_at = excluded.expires_at
+                """,
+                (incident_id, leader_id, generation, expires_at.isoformat()),
+            )
+            return SentinelLeaderLease(
+                incident_id=incident_id,
+                leader_id=leader_id,
+                generation=generation,
+                expires_at=expires_at,
+            )
 
     def list(self, *, limit: int = 20) -> tuple[IncidentBrief, ...]:
         with self._connect() as connection:

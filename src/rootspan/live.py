@@ -12,12 +12,21 @@ from rootspan.domain import (
     Evidence,
     LogQuery,
     ScenarioFixture,
+    SentinelOutcome,
     TimelineEvent,
     TimeWindow,
     TraceGraph,
     TraceSearch,
 )
 from rootspan.gateway import TelemetryGateway, TelemetryGatewayError, response_hash
+from rootspan.sentinel import (
+    CallbackSentinelAgent,
+    InMemorySentinelLeaderStore,
+    SentinelContext,
+    SentinelMeshCoordinator,
+    SentinelObservation,
+    TraceSystemSentinel,
+)
 
 Clock = Callable[[], datetime]
 T = TypeVar("T")
@@ -33,14 +42,21 @@ class LiveScenarioCollector:
         *,
         clock: Clock | None = None,
         max_concurrency: int = 4,
+        sentinel_mesh: SentinelMeshCoordinator | None = None,
     ) -> None:
         self._gateway = gateway
         self._clock = clock or (lambda: datetime.now(UTC))
         self._semaphore = asyncio.Semaphore(max_concurrency)
+        self._sentinel_mesh = sentinel_mesh or SentinelMeshCoordinator(
+            InMemorySentinelLeaderStore(),
+            clock=self._clock,
+            max_concurrency=max_concurrency,
+        )
 
     async def collect(
         self,
         *,
+        incident_id: str,
         window: TimeWindow,
         cohort_size: int,
         target_operation: str = "gateway.checkout",
@@ -60,16 +76,42 @@ class LiveScenarioCollector:
             self._fetch_traces(tuple(item.trace_id for item in failing_refs), window),
             self._fetch_traces(tuple(item.trace_id for item in healthy_refs), window),
         )
-        evidence, timeline = await self._corroborate(
+        context = SentinelContext(
+            incident_id=incident_id,
+            target_operation=target_operation,
             window=window,
-            failing_count=len(failing_traces),
-            healthy_count=len(healthy_traces),
+            healthy_traces=healthy_traces,
+            failing_traces=failing_traces,
             first_failure=min((item.observed_at for item in failing_refs), default=None),
             boundary_url=(healthy_refs or failing_refs)[0].web_url
             if healthy_refs or failing_refs
             else "",
         )
-        blast_radius = await self._blast_radius(window)
+        mesh_result = await self._sentinel_mesh.run(
+            context,
+            (
+                TraceSystemSentinel(
+                    "sentinel.gateway",
+                    "gateway",
+                    "gateway|gateway.checkout",
+                ),
+                TraceSystemSentinel(
+                    "sentinel.checkout",
+                    "checkout",
+                    "checkout|checkout.place_order",
+                ),
+                CallbackSentinelAgent(
+                    "sentinel.inventory",
+                    "inventory",
+                    self._observe_inventory,
+                ),
+                TraceSystemSentinel(
+                    "sentinel.inventory-db",
+                    "inventory-db",
+                    "inventory|inventory.db.select",
+                ),
+            ),
+        )
         return ScenarioFixture(
             schema_version="1.0",
             name="live-signoz-inventory-timeout",
@@ -78,14 +120,15 @@ class LiveScenarioCollector:
             match_dimensions=("root.operation", "incident.window"),
             healthy_traces=healthy_traces,
             failing_traces=failing_traces,
-            external_evidence=evidence,
-            blast_radius=blast_radius,
-            timeline=timeline,
+            external_evidence=mesh_result.evidence,
+            blast_radius=mesh_result.blast_radius,
+            timeline=mesh_result.timeline,
             next_queries=(
                 "Compare inventory.reserve by feature_flag.variant and inventory.version.",
                 "Inspect the earliest failing inventory trace before propagated checkout errors.",
                 "Confirm recovery by comparing inventory self-duration with the healthy cohort.",
             ),
+            sentinel_mesh=mesh_result.run,
         )
 
     async def _fetch_traces(
@@ -100,10 +143,45 @@ class LiveScenarioCollector:
         results = await asyncio.gather(*(fetch(trace_id) for trace_id in trace_ids))
         return tuple(results)
 
+    async def _observe_inventory(self, context: SentinelContext) -> SentinelObservation:
+        (evidence, timeline), blast_radius = await asyncio.gather(
+            self._corroborate(
+                window=context.window,
+                target_operation=context.target_operation,
+                failing_count=len(context.failing_traces),
+                healthy_count=len(context.healthy_traces),
+                first_failure=context.first_failure,
+                boundary_url=context.boundary_url,
+            ),
+            self._blast_radius(context.window),
+        )
+        evidence_signals = {item.signal for item in evidence}
+        required_signals = {"log", "metric", "change", "topology"}
+        comparable = min(len(context.healthy_traces), len(context.failing_traces)) >= 2
+        evidence_ids = [item.id for item in evidence]
+        if comparable:
+            evidence_ids.insert(0, "trace-diff:inventory|inventory.reserve")
+        return SentinelObservation(
+            summary=(
+                f"Collected {len(evidence)} cross-signal evidence records and "
+                f"{len(blast_radius)} blast-radius slices for inventory."
+            ),
+            outcome=(
+                SentinelOutcome.READY
+                if required_signals <= evidence_signals
+                else SentinelOutcome.DEGRADED
+            ),
+            evidence=evidence,
+            timeline=timeline,
+            blast_radius=blast_radius,
+            evidence_ids=tuple(evidence_ids),
+        )
+
     async def _corroborate(
         self,
         *,
         window: TimeWindow,
+        target_operation: str,
         failing_count: int,
         healthy_count: int,
         first_failure: datetime | None,
@@ -252,7 +330,7 @@ class LiveScenarioCollector:
                     ),
                     query_tool="signoz_search_traces",
                     query_args={
-                        "operation": "gateway.checkout",
+                        "operation": target_operation,
                         "error": False,
                         "start": window.start.isoformat(),
                         "end": window.end.isoformat(),

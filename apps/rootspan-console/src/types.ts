@@ -10,6 +10,8 @@ export type IncidentState =
   | "FAILED"
   | "CLOSED";
 export type Confidence = "high" | "medium" | "low" | "insufficient";
+export type SentinelRole = "LEADER" | "FOLLOWER";
+export type SentinelOutcome = "READY" | "DEGRADED" | "FAILED";
 
 export interface Evidence {
   id: string;
@@ -66,6 +68,29 @@ export interface TimelineEvent {
   evidence_id: string | null;
 }
 
+export interface SentinelFinding {
+  sentinel_id: string;
+  system: string;
+  role: SentinelRole;
+  outcome: SentinelOutcome;
+  summary: string;
+  evidence_ids: string[];
+  started_at: string;
+  completed_at: string;
+  error_code: string | null;
+}
+
+export interface SentinelMeshRun {
+  leader_id: string;
+  previous_leader_ids: string[];
+  follower_ids: string[];
+  status: SentinelOutcome;
+  lease_generation: number;
+  started_at: string;
+  completed_at: string;
+  findings: SentinelFinding[];
+}
+
 export interface IncidentBrief {
   incident_id: string;
   scenario: string;
@@ -87,6 +112,7 @@ export interface IncidentBrief {
     evidence_count: number;
     analysis_duration_ms: number;
   };
+  sentinel_mesh: SentinelMeshRun | null;
 }
 
 export interface IncidentListResponse {

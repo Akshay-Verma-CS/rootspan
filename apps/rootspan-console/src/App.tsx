@@ -9,12 +9,14 @@ import {
   ChevronRight,
   CircleDot,
   Clock3,
+  Crown,
   ExternalLink,
   FileSearch,
   Gauge,
   Layers3,
   Play,
   RefreshCw,
+  RadioTower,
   Search,
   ShieldCheck,
   Sparkles,
@@ -93,6 +95,7 @@ function App() {
           <CandidatePanel incident={incident} />
         </div>
         <CohortComparison incident={incident} />
+        <SentinelMeshPanel incident={incident} />
         <div className="evidence-grid">
           <EvidencePanel incident={incident} />
           <BlastRadius incident={incident} />
@@ -275,6 +278,59 @@ function CohortComparison({ incident }: { incident: IncidentBrief }) {
           <div><span>Error lift</span><strong>{percent(top.error_lift)}</strong></div>
           <div><span>Matched by</span><strong>{incident.cohort.match_dimensions.length} dimensions</strong></div>
         </div>
+      </div>
+    </section>
+  );
+}
+
+function SentinelMeshPanel({ incident }: { incident: IncidentBrief }) {
+  const mesh = incident.sentinel_mesh;
+  if (!mesh) return null;
+  return (
+    <section className="panel sentinel-panel">
+      <PanelHeader
+        icon={<RadioTower size={17} />}
+        title="Sentinel mesh"
+        meta={`${mesh.status.toLowerCase()} · lease generation ${mesh.lease_generation}`}
+      />
+      {mesh.previous_leader_ids.length > 0 && (
+        <div className="failover-strip">
+          Leadership moved from {mesh.previous_leader_ids.join(", ")} to {mesh.leader_id}.
+        </div>
+      )}
+      <div className="sentinel-grid">
+        {mesh.findings.map((finding) => (
+          <article
+            className={`sentinel-card ${finding.outcome.toLowerCase()}`}
+            key={finding.sentinel_id}
+          >
+            <div className="sentinel-title">
+              <div>
+                {finding.role === "LEADER" ? <Crown size={15} /> : <RadioTower size={15} />}
+                <strong>{finding.system}</strong>
+              </div>
+              <span>{finding.role.toLowerCase()}</span>
+            </div>
+            <p>{finding.summary}</p>
+            <div className="sentinel-meta">
+              <span>{finding.outcome.toLowerCase()}</span>
+              <span>{finding.evidence_ids.length} evidence refs</span>
+              {finding.error_code && <span>{finding.error_code}</span>}
+            </div>
+            {finding.evidence_ids.length > 0 && (
+              <div className="sentinel-evidence">
+                {finding.evidence_ids.slice(0, 2).map((evidenceId) => {
+                  const evidence = incident.evidence.find((item) => item.id === evidenceId);
+                  return evidence ? (
+                    <a href={evidence.web_url} key={evidenceId} target="_blank" rel="noreferrer">
+                      {evidenceId}
+                    </a>
+                  ) : <span key={evidenceId}>{evidenceId}</span>;
+                })}
+              </div>
+            )}
+          </article>
+        ))}
       </div>
     </section>
   );

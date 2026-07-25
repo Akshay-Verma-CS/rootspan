@@ -44,7 +44,7 @@ The estimate is intentionally coarse (roughly ±25%). The approximately seven-ho
 
 ### Implementation checkpoint — July 26, 2026
 
-The fixture/replay and live vertical slices are implemented: deterministic correlation core, MCP/Query Builder gateway, alert webhook, persisted state machine, SSE progress, SQLite briefs, responder console, instrumented incident lab, Compose package, and live SigNoz traces/logs/metrics. The optional narrator and direct-HTTP fallback remain non-critical future adapters.
+The fixture/replay and live vertical slices are implemented: deterministic correlation core, MCP/Query Builder gateway, alert webhook, persisted state machine, incident-scoped Sentinel Mesh, SSE progress, SQLite briefs, responder console, instrumented incident lab, Compose package, and live SigNoz traces/logs/metrics. The optional narrator and direct-HTTP fallback remain non-critical future adapters.
 
 ### RootSpan backend
 
@@ -116,7 +116,10 @@ flowchart TB
         API --> OR["Incident orchestrator"]
         OR --> SG["SigNoz telemetry gateway"]
         SG --> CS["Cohort selector"]
-        CS --> CA["Canonicalizer and aligner"]
+        CS --> SM["Sentinel Mesh leader"]
+        SM --> SF["System-scoped followers"]
+        SF --> SG["SigNoz telemetry gateway"]
+        SM --> CA["Canonicalizer and aligner"]
         CA --> DR["Divergence ranker"]
         DR --> XS["Cross-signal corroborator"]
         XS --> BR["Blast-radius analyzer"]
@@ -137,17 +140,18 @@ flowchart TB
 1. The bootstrapped SigNoz trace-based checkout error-rate alert calls `POST /api/v1/webhooks/signoz` with an Alertmanager-compatible payload.
 2. RootSpan deduplicates updates using the alert fingerprint and creates an incident state record.
 3. The window builder bounds the query from `startsAt` and the configured maximum lookback; healthy and failing cohorts are selected from that same comparable window.
-4. The SigNoz gateway programmatically calls MCP tools:
+4. An atomic SQLite lease elects one incident leader. It delegates bounded observations to gateway, checkout, inventory, and database sentinels with a maximum concurrency of four.
+5. The sentinels use the SigNoz gateway to call MCP tools programmatically:
    - `signoz_search_traces` for candidate failing and healthy traces;
    - `signoz_get_trace_details` for bounded complete trace retrieval;
    - `signoz_search_logs` for timeout and change-event evidence;
    - `signoz_execute_builder_query` for trace-latency and blast-radius aggregations;
    - `signoz_query_metrics` through the typed gateway when a bounded follow-up metric is requested.
-5. Complete-trace requests run with bounded concurrency and explicit transport timeouts. Evidence-producing results store the tool name, typed arguments, time range, response hash, observation time, and deep link. Per-call latency/status persistence and retry/backoff remain future hardening.
-6. The deterministic correlation pipeline produces ranked candidates and evidence grades.
-7. A future optional model may turn the evidence bundle into concise prose and bounded next-query suggestions; it is not part of the current runtime path.
-8. The API streams stage changes to the console over SSE.
-9. The responder follows deep links into SigNoz and decides what to do.
+6. Complete-trace requests run with bounded concurrency and explicit transport timeouts. Evidence-producing results store the tool name, typed arguments, time range, response hash, observation time, and deep link. Per-call latency/status persistence and retry/backoff remain future hardening.
+7. A failed follower is recorded as degraded. A failed leader transfers its lease to a healthy follower; total mesh failure stops the investigation safely.
+8. The deterministic correlation pipeline produces ranked candidates and evidence grades.
+9. A future optional model may turn the evidence bundle into concise prose and bounded next-query suggestions; it is not part of the current runtime path.
+10. The API streams stage changes to the console over SSE, and the responder follows deep links into SigNoz.
 
 The SigNoz MCP tools already expose structured trace search, full trace detail, log search, aggregation, Query Builder v5, and UI deep links. RootSpan should invoke those tools as a normal MCP client; an LLM is not required to call them.
 
@@ -222,7 +226,15 @@ Evidence
 
 IncidentBrief
   situation, impact, ranked_candidates, timeline,
-  blast_radius, next_queries, evidence_index
+  blast_radius, next_queries, evidence_index, sentinel_mesh
+
+SentinelMeshRun
+  leader_id, previous_leader_ids, follower_ids, status,
+  lease_generation, started_at, completed_at, findings
+
+SentinelFinding
+  sentinel_id, system, role, outcome, summary,
+  evidence_ids, started_at, completed_at, error_code
 ```
 
 Use these contracts for API responses, SQLite JSON payloads, fixtures, and tests so the live and replay paths cannot drift.
@@ -292,8 +304,9 @@ Live multi-stage collection uses:
 - `incidents`
 - `stage_runs`
 - `incident_briefs`
+- `sentinel_leases`
 
-Evidence and candidates are stored inside the immutable validated brief, while stage transitions are normalized for ordered progress. Query payloads, selected observations, response hashes, and deep links are retained without duplicating raw telemetry.
+Evidence, candidates, and the completed Sentinel Mesh report are stored inside the immutable validated brief. Stage transitions are normalized for ordered progress, while `sentinel_leases` stores only incident ownership, generation, and expiry. Query payloads, selected observations, response hashes, and deep links are retained without duplicating raw telemetry.
 
 ## Deployment
 
@@ -328,6 +341,7 @@ Use separate credentials:
 
 - Kubernetes for the demo.
 - A separate service for each RootSpan stage.
+- A separate deployed process for each sentinel.
 - A queue/broker cluster.
 - A graph database.
 - A vector/RAG store.
@@ -345,6 +359,9 @@ Use separate credentials:
 6. Every displayed factual claim has a query/deep-link provenance record.
 7. A RootSpan incident can be replayed with no SigNoz or model connection.
 8. Five live incident runs rank the seeded divergence consistently.
+9. A failed follower degrades visibly without hiding healthy findings.
+10. A failed or expired leader advances the persisted lease generation.
+11. Total sentinel failure stops safely instead of guessing.
 
 ## Primary references
 

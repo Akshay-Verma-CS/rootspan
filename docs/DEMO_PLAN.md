@@ -16,7 +16,7 @@ Make the scope visible but do not reveal it verbally yet.
 
 ### 0:50–1:50 — show the first divergence
 
-RootSpan displays matched healthy and failing trace cohorts. Upstream gateway/checkout spans show propagated symptoms. The first shared behavioral split is highlighted at `inventory.reserve`.
+RootSpan elects the gateway sentinel as incident leader and shows its checkout, inventory, and database followers observing their attached scopes. Then it displays matched healthy and failing trace cohorts. Upstream gateway/checkout spans show propagated symptoms. The first shared behavioral split is highlighted at `inventory.reserve`.
 
 Show the transparent ranking factors:
 
@@ -112,6 +112,7 @@ Use “reduced investigation time in our controlled incident” rather than maki
 - contradicting evidence or abstention case;
 - blast-radius counts and denominators;
 - RootSpan’s own investigation trace in SigNoz;
+- the Sentinel Mesh leader, follower outcomes, and `sentinel.observe` spans;
 - timed manual versus RootSpan-assisted investigation;
 - limitations discovered during real implementation.
 
@@ -128,6 +129,9 @@ The product targets the expensive investigation gap while preserving enterprise 
 
 **Why use SigNoz deeply?**
 SigNoz detects the SLO impact, stores every evidence signal, exposes query/MCP access, provides raw-data verification and deep links, and observes RootSpan’s own investigation pipeline.
+
+**Are the sentinels just multiple LLMs voting?**
+No. They are autonomous read-only observers with system-scoped capabilities and deterministic lease-based coordination. Their findings reference telemetry evidence; the correlation engine owns scoring. A generative planner can be added behind the same bounded contracts, but model consensus never substitutes for evidence.
 
 **Does “first divergence” prove root cause?**
 No. RootSpan explicitly presents a ranked hypothesis with coverage, confidence, boundaries, and contradicting evidence. It helps a human reach the correct decision faster without disguising uncertainty.

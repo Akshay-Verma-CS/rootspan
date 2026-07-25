@@ -81,6 +81,8 @@ telemetry-check:
 		"SELECT log_count, throwIf(log_count < 10, 'RootSpan incident logs are missing') FROM (SELECT count() AS log_count FROM signoz_logs.distributed_logs_v2 WHERE timestamp >= toUnixTimestamp64Nano(now64()) - 900000000000 AND body LIKE '%inventory.reserve.timeout%') FORMAT PrettyCompact"
 	docker exec signoz-telemetrystore-clickhouse-0-0 clickhouse-client --query \
 		"SELECT stage_count, throwIf(stage_count < 6, 'RootSpan investigation stage spans are missing') FROM (SELECT uniq(name) AS stage_count FROM signoz_traces.distributed_signoz_index_v3 WHERE timestamp >= now() - INTERVAL 15 MINUTE AND name IN ('incident.window.build', 'cohort.select', 'trace.align', 'divergence.rank', 'blast_radius.calculate', 'brief.compile')) FORMAT PrettyCompact"
+	docker exec signoz-telemetrystore-clickhouse-0-0 clickhouse-client --query \
+		"SELECT sentinel_count, throwIf(sentinel_count < 4, 'RootSpan sentinel observation spans are missing') FROM (SELECT count() AS sentinel_count FROM signoz_traces.distributed_signoz_index_v3 WHERE timestamp >= now() - INTERVAL 15 MINUTE AND name = 'sentinel.observe') FORMAT PrettyCompact"
 
 live-verify:
 	$(MAKE) live-smoke

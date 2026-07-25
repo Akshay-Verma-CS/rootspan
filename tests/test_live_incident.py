@@ -10,10 +10,11 @@ from rootspan.api.app import create_app
 from rootspan.api.services import AppServices
 from rootspan.config import Settings
 from rootspan.correlation import CorrelationAnalyzer
-from rootspan.domain import IncidentState, TimeWindow
+from rootspan.domain import IncidentState, SentinelOutcome, TimeWindow
 from rootspan.fixtures.loader import load_scenario
 from rootspan.gateway import FixtureTelemetryGateway
 from rootspan.live import LiveScenarioCollector
+from rootspan.sentinel import SentinelMeshCoordinator
 from rootspan.service import IncidentService
 from rootspan.storage import IncidentRepository
 
@@ -43,7 +44,11 @@ def _service(
     return IncidentService(
         repository,
         analyzer=CorrelationAnalyzer(clock=_clock),
-        live_collector=LiveScenarioCollector(FixtureTelemetryGateway(fixture), clock=_clock),
+        live_collector=LiveScenarioCollector(
+            FixtureTelemetryGateway(fixture),
+            clock=_clock,
+            sentinel_mesh=SentinelMeshCoordinator(repository, clock=_clock),
+        ),
         clock=_clock,
     )
 
@@ -65,6 +70,16 @@ async def test_live_run_persists_ordered_stages_and_deduplicates_alerts(tmp_path
 
     assert first.state is IncidentState.READY
     assert first.ranked_candidates[0].operation_key == "inventory|inventory.reserve"
+    assert first.sentinel_mesh is not None
+    assert first.sentinel_mesh.leader_id == "sentinel.gateway"
+    assert first.sentinel_mesh.status is SentinelOutcome.DEGRADED
+    assert len(first.sentinel_mesh.findings) == 4
+    mesh_evidence_ids = {
+        evidence_id
+        for finding in first.sentinel_mesh.findings
+        for evidence_id in finding.evidence_ids
+    }
+    assert mesh_evidence_ids <= {item.id for item in first.evidence}
     assert duplicate.incident_id == first.incident_id
     assert [event.state for event in service.progress(first.incident_id)] == [
         IncidentState.RECEIVED,
@@ -85,6 +100,13 @@ async def test_live_run_abstains_when_each_cohort_has_only_one_trace(tmp_path: P
 
     assert brief.state is IncidentState.INSUFFICIENT_EVIDENCE
     assert brief.ranked_candidates == ()
+    assert brief.sentinel_mesh is not None
+    mesh_evidence_ids = {
+        evidence_id
+        for finding in brief.sentinel_mesh.findings
+        for evidence_id in finding.evidence_ids
+    }
+    assert mesh_evidence_ids <= {item.id for item in brief.evidence}
     assert service.progress(brief.incident_id)[-1].state is IncidentState.INSUFFICIENT_EVIDENCE
 
 
@@ -172,6 +194,8 @@ async def test_live_api_and_webhook_use_the_same_persisted_path(tmp_path: Path) 
 
     assert overlong.status_code == 422
     assert progress.status_code == 200
+    assert live.json()["sentinel_mesh"]["leader_id"] == "sentinel.gateway"
+    assert len(live.json()["sentinel_mesh"]["findings"]) == 4
     assert progress.json()["events"][-1]["state"] == "READY"
     assert stream.status_code == 200
     assert '"state":"READY"' in stream.text

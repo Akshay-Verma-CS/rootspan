@@ -98,6 +98,7 @@ class CorrelationAnalyzer:
                 evidence_count=len(evidence),
                 analysis_duration_ms=round((perf_counter() - timer_started) * 1000, 3),
             ),
+            sentinel_mesh=scenario.sentinel_mesh,
         )
 
     @staticmethod
@@ -279,6 +280,7 @@ class CorrelationAnalyzer:
                 evidence_count=len(scenario.external_evidence),
                 analysis_duration_ms=round((perf_counter() - timer_started) * 1000, 3),
             ),
+            sentinel_mesh=scenario.sentinel_mesh,
         )
 
     @staticmethod

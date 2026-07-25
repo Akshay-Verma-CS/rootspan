@@ -4,7 +4,7 @@
 
 **The first broken thing, not the loudest alert.**
 
-RootSpan is a human-in-the-loop incident correlation engine for SigNoz. When an SLO alert fires, it compares failing requests with equivalent healthy requests and identifies the earliest shared telemetry divergence before errors cascade through the service graph.
+RootSpan is a human-in-the-loop incident correlation engine for SigNoz. When an SLO alert fires, a leader/follower mesh of read-only sentinels observes the attached systems, while deterministic cohort analysis identifies the earliest shared telemetry divergence before errors cascade through the service graph.
 
 It gives the responder a decision-ready incident brief:
 
@@ -27,6 +27,7 @@ The current build includes:
 - fixture and live MCP gateways returning the same strict telemetry contracts;
 - bounded MCP trace/log queries plus Query Builder v5 latency and blast-radius aggregation;
 - a persisted incident state machine, fingerprint-idempotent SigNoz webhook, and SSE progress feed;
+- an incident-scoped Sentinel Mesh with SQLite leader leases, bounded parallel delegation, follower degradation, and deterministic leader failover;
 - a versioned FastAPI replay/live API with SQLite persistence;
 - a responsive React responder console served by Nginx;
 - a three-service OpenTelemetry incident lab with a scoped, resettable inventory timeout;
@@ -35,6 +36,12 @@ The current build includes:
 - fixture, API, gateway, persistence, webhook, incident-lab, frontend, Compose, and live-SigNoz checks.
 
 The optional LLM narrator is intentionally not on the critical path. Ranking, abstention, evidence, replay, and live correlation remain deterministic and usable without a model.
+
+## Sentinel Mesh
+
+Each live incident elects one sentinel leader and delegates read-only observation to gateway, checkout, inventory, and database followers. The sentinels operate concurrently over bounded trace cohorts and SigNoz queries, then return structured findings and evidence references. If the elected leader fails, a healthy follower takes over through a persisted lease generation; a failed follower is visible but does not erase evidence returned by the rest of the mesh.
+
+The current sentinel policy is autonomous but deterministic: it selects predefined, schema-limited observation capabilities for the attached systems. A future model adapter may choose among those bounded capabilities or narrate the verified packet. Models never elect leaders, score candidates, manufacture evidence, or remediate production.
 
 ## Quickstart
 
@@ -60,7 +67,7 @@ make live-verify
 
 `make bootstrap-signoz` stores ignored owner-only bootstrap/runtime files, gives the runtime service account only `signoz-viewer`, and provisions the RootSpan dashboard, checkout error-rate alert, and webhook channel. It is safe to rerun and never prints credentials.
 
-`make live-verify` proves replay and live MCP correlation through the production proxy, ordered SQLite state transitions, trace/log/change/topology evidence plus a quantitative latency comparison, reset recovery, three-service propagation, custom metric ingestion, and RootSpan's own stage spans. The failure switch is reset even if an assertion fails.
+`make live-verify` proves replay and live MCP correlation through the production proxy, Sentinel Mesh leadership and four system observations, ordered SQLite state transitions, trace/log/change/topology evidence plus a quantitative latency comparison, reset recovery, three-service propagation, custom metric ingestion, and RootSpan's own stage/agent spans. The failure switch is reset even if an assertion fails.
 
 Running endpoints:
 
@@ -93,7 +100,7 @@ make app-down      # stop RootSpan; keep its SQLite volume
 
 The incident lab uses deterministic fault injection: one scoped inventory timeout, a bounded traffic cohort, an explicit reset, and a recovery assertion. This makes the demo reproducible and safe. It is not presented as a chaos-engineering platform; randomized experiments, steady-state hypotheses, abort policies, and experiment scheduling are outside the current slice.
 
-Current limits are deliberate: the bootstrap creates a trace-based checkout error-rate threshold alert rather than a formal multi-window SLO burn alert, live correlation covers one seeded timeout scenario, automatic restart/resume is not implemented, and the optional LLM narrator and direct-HTTP SigNoz fallback remain excluded from the critical path.
+Current limits are deliberate: the bootstrap creates a trace-based checkout error-rate threshold alert rather than a formal multi-window SLO burn alert, live correlation covers one seeded timeout scenario, a process restart does not yet resume a partially completed investigation, and the optional LLM narrator and direct-HTTP SigNoz fallback remain excluded from the critical path.
 
 Generated Foundry output under `pours/` is intentionally ignored; `casting.yaml` and `casting.yaml.lock` are the reproducible inputs.
 

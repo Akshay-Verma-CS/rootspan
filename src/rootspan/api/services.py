@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from rootspan.config import Settings
 from rootspan.gateway import McpSigNozGateway
 from rootspan.live import LiveScenarioCollector
+from rootspan.sentinel import SentinelMeshCoordinator
 from rootspan.service import IncidentService
 from rootspan.storage import IncidentRepository
 
@@ -25,6 +26,9 @@ class AppServices:
         return cls(
             incidents=IncidentService(
                 repository,
-                live_collector=LiveScenarioCollector(gateway),
+                live_collector=LiveScenarioCollector(
+                    gateway,
+                    sentinel_mesh=SentinelMeshCoordinator(repository),
+                ),
             )
         )

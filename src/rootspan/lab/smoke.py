@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import httpx
 
 from rootspan.api.contracts import IncidentProgressResponse
-from rootspan.domain import IncidentBrief, IncidentState
+from rootspan.domain import IncidentBrief, IncidentState, SentinelOutcome
 from rootspan.lab.traffic import TrafficResult, generate_traffic
 
 
@@ -101,6 +101,13 @@ async def run_smoke(config: SmokeConfig) -> None:
                 raise RuntimeError("live investigation returned no ranked candidates")
             if live_brief.ranked_candidates[0].operation_key != "inventory|inventory.reserve":
                 raise RuntimeError("live investigation did not rank inventory.reserve first")
+            mesh = live_brief.sentinel_mesh
+            if mesh is None or mesh.leader_id != "sentinel.gateway":
+                raise RuntimeError("live investigation did not elect the gateway sentinel")
+            if mesh.status is not SentinelOutcome.READY or len(mesh.findings) != 4:
+                raise RuntimeError("live sentinel mesh was incomplete or degraded")
+            if any(item.outcome is SentinelOutcome.FAILED for item in mesh.findings):
+                raise RuntimeError("a live sentinel failed during the investigation")
             evidence_signals = {item.signal for item in live_brief.evidence}
             if not {"trace", "log", "metric", "change", "topology"} <= evidence_signals:
                 raise RuntimeError(

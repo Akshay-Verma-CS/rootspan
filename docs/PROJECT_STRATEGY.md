@@ -13,7 +13,7 @@ RootSpan is a read-only investigation system that answers those questions from S
 
 ## One-line pitch
 
-RootSpan compares healthy and failing trace cohorts, locates the first shared cross-signal divergence, and hands the responder a cited incident brief in seconds.
+RootSpan coordinates read-only system sentinels, compares healthy and failing trace cohorts, locates the first shared cross-signal divergence, and hands the responder a cited incident brief in seconds.
 
 ## Why this is more specific than an SRE copilot
 
@@ -57,6 +57,14 @@ RootSpan labels this a ranked hypothesis, not incontrovertible root cause.
 ### Failure-testing boundary
 
 The current incident lab uses a deterministic, scoped fault injector to create the golden timeout scenario. Traffic volume is bounded, the switch is resettable, and the smoke gate asserts recovery. That is controlled fault injection, not a claim that RootSpan is a chaos-engineering platform. A true chaos layer would additionally require explicit steady-state hypotheses, safety aborts, experiment scheduling, broader fault types, and persisted experiment outcomes.
+
+### Sentinel Mesh
+
+Every live incident creates an incident-scoped leader/follower mesh rather than one global agent. Gateway, checkout, inventory, and database sentinels observe only their attached system scope. The elected leader delegates their bounded work in parallel, compiles the returned evidence inputs, and hands them to the deterministic ranker.
+
+Leadership is a SQLite lease, not a model decision or an agent vote. An active lease is stable; expiry or a failed leader advances the generation and selects the next healthy sentinel. Follower failure degrades the mesh visibly without discarding other findings. If every sentinel fails, the investigation stops safely and the incident state records `FAILED`.
+
+The shipped sentinel policy is an autonomous deterministic expert policy. A later provider adapter may plan among the same schema-limited read-only observations, but it cannot alter evidence, scoring, leadership, or the human approval boundary.
 
 ## Investigation pipeline
 
@@ -149,13 +157,16 @@ The output is an incident packet, not prose alone:
 flowchart LR
     A["SigNoz SLO alert"] --> B["Incident window builder"]
     B --> C["Healthy and failing cohort selector"]
-    C --> D["Trace tree aligner"]
+    C --> S["Sentinel leader"]
+    S --> SF["System-scoped followers"]
+    SF --> D["Trace tree aligner"]
     D --> E["First-divergence ranker"]
     E --> F["Cross-signal corroborator"]
     F --> G["Blast-radius analyzer"]
     G --> H["Human incident brief"]
     H --> I["Responder investigates and decides"]
     J["SigNoz MCP and Query Builder"] --> C
+    J --> SF
     J --> F
     J --> G
     B -. "OTel" .-> K["SigNoz"]
@@ -180,6 +191,7 @@ One screen should answer the responder’s questions without duplicating SigNoz:
 
 Deterministic code owns:
 
+- leader leases, failover, bounded delegation, and agent outcome recording;
 - cohort construction;
 - trace alignment;
 - divergence scoring;
@@ -197,6 +209,7 @@ The model may:
 
 The model may not:
 
+- elect a leader or decide whether evidence exists;
 - execute shell, infrastructure, deployment, or code tools;
 - invent evidence not present in the evidence store;
 - label a candidate as certain when coverage/confidence is weak;
@@ -217,6 +230,10 @@ Suggested RootSpan spans:
 
 - `incident.window.build`
 - `cohort.select`
+- `sentinel.leader.elect`
+- `sentinel.delegate`
+- `sentinel.observe`
+- `sentinel.leader.failover`
 - `signoz.query`
 - `trace.align`
 - `divergence.rank`
@@ -238,6 +255,7 @@ Measure honestly during the sprint:
 - percentage of claims with clickable evidence;
 - abstention rate when evidence is insufficient;
 - agent token/tool-call latency and cost.
+- sentinel availability, degraded runs, lease generations, and leader failovers.
 
 Do not promise SLA improvement from a synthetic demo. Show measured reductions in investigation steps/time and explain how those reduce MTTI/MTTR.
 

@@ -93,6 +93,7 @@ class IncidentService:
             )
             with self._tracer.start_as_current_span("cohort.select"):
                 scenario = await self._live_collector.collect(
+                    incident_id=incident_id,
                     window=window,
                     cohort_size=cohort_size,
                     target_operation=target_operation,

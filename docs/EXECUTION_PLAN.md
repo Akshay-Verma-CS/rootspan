@@ -27,6 +27,7 @@ Current implementation checkpoint (July 26):
 - The deterministic lab now emits live traces, logs, metrics, and change events into SigNoz.
 - The Viewer-only MCP gateway builds live cohorts, fetches complete traces, queries logs, and uses Query Builder v5 for latency and blast-radius evidence.
 - Manual and alert-webhook investigations share a persisted state machine, deterministic ranker, SSE progress history, responder console, and explicit abstention path.
+- Four system-scoped sentinels use an incident leader, persisted SQLite lease generations, bounded delegation, visible degradation, and deterministic failover.
 - Bootstrap provisions the SigNoz incident dashboard, upstream checkout error-rate alert, and RootSpan webhook channel idempotently.
 - The optional narrator is cut from the critical path; no model is required for the completed evidence packet.
 
@@ -88,7 +89,7 @@ Current implementation checkpoint (July 26):
 - Build agent-performance and incident-correlation dashboards.
 - Add replay fixtures and the low-confidence/abstention path if stable.
 
-**Status:** complete for deterministic correlation: query arguments, response hashes, deep links, contradictions, and stage spans are recorded. Optional model narration remains deliberately excluded.
+**Status:** complete for deterministic agent coordination and correlation: incident-scoped leadership, four attached-system observers, lease failover, query arguments, response hashes, deep links, contradictions, and agent/stage spans are recorded. Optional generative narration remains deliberately excluded.
 
 ## Day 7 — evaluation and presentation
 
@@ -121,6 +122,7 @@ Current implementation checkpoint (July 26):
 │   ├── domain/
 │   ├── fixtures/
 │   ├── lab/
+│   ├── sentinel.py
 │   └── storage/
 ├── tests/
 └── docs/
@@ -147,6 +149,7 @@ If time slips, remove the model before removing cohort comparison or evidence pr
 | Healthy baseline is not comparable | Match key dimensions, report coverage, and abstain when coverage is weak. |
 | “Root cause” claim overreaches | Say first divergence/ranked hypothesis and expose contradiction evidence. |
 | MCP/query latency hurts the demo | Bound queries, cache evidence for an incident, and provide labeled replay fixtures. |
+| A sentinel or leader fails | Preserve healthy follower findings, expose degradation, and transfer an expired/failed leader lease deterministically. |
 | Project looks like another summary bot | Lead the demo with cohort trace alignment and deterministic ranking before showing any prose. |
 | UI duplicates SigNoz | Deep-link raw data to SigNoz; keep RootSpan focused on comparisons and the human handoff. |
 | Scope expands into remediation | Maintain read-only tool permissions and explicit non-goals. |

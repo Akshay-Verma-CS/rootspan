@@ -28,6 +28,21 @@ class IncidentState(StrEnum):
     CLOSED = "CLOSED"
 
 
+class SentinelRole(StrEnum):
+    """The coordination role held by a sentinel for one incident."""
+
+    LEADER = "LEADER"
+    FOLLOWER = "FOLLOWER"
+
+
+class SentinelOutcome(StrEnum):
+    """A sentinel's bounded observation outcome."""
+
+    READY = "READY"
+    DEGRADED = "DEGRADED"
+    FAILED = "FAILED"
+
+
 class TimeWindow(DomainModel):
     """A bounded, timezone-aware telemetry query window."""
 
@@ -262,6 +277,84 @@ class RunMetrics(DomainModel):
     analysis_duration_ms: float = Field(ge=0)
 
 
+class SentinelLeaderLease(DomainModel):
+    """Persisted ownership of sentinel coordination for one incident."""
+
+    incident_id: str
+    leader_id: str
+    generation: int = Field(ge=1)
+    expires_at: datetime
+
+    @model_validator(mode="after")
+    def validate_expiry(self) -> "SentinelLeaderLease":
+        if self.expires_at.tzinfo is None:
+            raise ValueError("sentinel lease expiry must be timezone-aware")
+        return self
+
+
+class SentinelFinding(DomainModel):
+    """One system-scoped agent observation with evidence references."""
+
+    sentinel_id: str
+    system: str
+    role: SentinelRole
+    outcome: SentinelOutcome
+    summary: str
+    evidence_ids: tuple[str, ...] = ()
+    started_at: datetime
+    completed_at: datetime
+    error_code: str | None = None
+
+    @model_validator(mode="after")
+    def validate_timing(self) -> "SentinelFinding":
+        if self.started_at.tzinfo is None or self.completed_at.tzinfo is None:
+            raise ValueError("sentinel finding timestamps must be timezone-aware")
+        if self.completed_at < self.started_at:
+            raise ValueError("sentinel finding completion cannot precede its start")
+        if self.outcome is SentinelOutcome.FAILED and self.error_code is None:
+            raise ValueError("failed sentinel findings require an error code")
+        if self.outcome is not SentinelOutcome.FAILED and self.error_code is not None:
+            raise ValueError("only failed sentinel findings may include an error code")
+        return self
+
+
+class SentinelMeshRun(DomainModel):
+    """Auditable leader/follower coordination for one investigation."""
+
+    leader_id: str
+    previous_leader_ids: tuple[str, ...] = ()
+    follower_ids: tuple[str, ...]
+    status: SentinelOutcome
+    lease_generation: int = Field(ge=1)
+    started_at: datetime
+    completed_at: datetime
+    findings: tuple[SentinelFinding, ...]
+
+    @model_validator(mode="after")
+    def validate_mesh(self) -> "SentinelMeshRun":
+        if self.started_at.tzinfo is None or self.completed_at.tzinfo is None:
+            raise ValueError("sentinel mesh timestamps must be timezone-aware")
+        if self.completed_at < self.started_at:
+            raise ValueError("sentinel mesh completion cannot precede its start")
+        finding_ids = [item.sentinel_id for item in self.findings]
+        if len(finding_ids) != len(set(finding_ids)):
+            raise ValueError("sentinel findings must have unique sentinel IDs")
+        if self.leader_id not in finding_ids:
+            raise ValueError("sentinel mesh leader must have a finding")
+        expected_followers = tuple(item for item in finding_ids if item != self.leader_id)
+        if self.follower_ids != expected_followers:
+            raise ValueError("sentinel follower order must match finding order")
+        for finding in self.findings:
+            expected_role = (
+                SentinelRole.LEADER
+                if finding.sentinel_id == self.leader_id
+                else SentinelRole.FOLLOWER
+            )
+            if finding.role is not expected_role:
+                raise ValueError("sentinel finding role does not match elected leadership")
+        return self
+
+
 class IncidentBrief(DomainModel):
     """Decision-ready output returned to the responder console."""
 
@@ -280,6 +373,7 @@ class IncidentBrief(DomainModel):
     timeline: tuple[TimelineEvent, ...]
     next_queries: tuple[str, ...]
     metrics: RunMetrics
+    sentinel_mesh: SentinelMeshRun | None = None
 
 
 class ScenarioFixture(DomainModel):
@@ -296,3 +390,4 @@ class ScenarioFixture(DomainModel):
     blast_radius: tuple[BlastRadiusSlice, ...]
     timeline: tuple[TimelineEvent, ...]
     next_queries: tuple[str, ...]
+    sentinel_mesh: SentinelMeshRun | None = None

@@ -99,7 +99,7 @@ Keep alert ingestion, orchestration, SigNoz access, cohorting, alignment, correl
 
 - Fewer containers and a more reliable clean-clone demo.
 - Stage boundaries remain visible through domain interfaces and OpenTelemetry spans.
-- SQLite plus restart recovery is sufficient; no Celery, Redis, Kafka, or Temporal is required.
+- SQLite persistence and leases are sufficient for the bounded workload; automatic restart/resume remains future work, and no Celery, Redis, Kafka, or Temporal is required.
 
 ## DR-006 — Python incident lab over a separate Go toolchain
 
@@ -141,3 +141,26 @@ Run a small `rootspan-collector` service from the application Compose file. It a
 - SigNoz remains the telemetry backend, query surface, and demo UI.
 - `make telemetry-check` verifies three-service trace propagation, the expected failing cohort, and custom metrics in SigNoz storage.
 - The bridge is local-deployment scaffolding, not a second product data store, and can be removed when a clean Foundry cast exposes active OTLP pipelines reliably.
+
+## DR-008 — Incident-scoped Sentinel Mesh with deterministic leadership
+
+**Date:** July 26, 2026
+**Status:** Accepted
+
+### Context
+
+A single investigator can become a bottleneck when an incident crosses multiple attached systems. Deploying an unbounded swarm of model-driven agents would add cost, correlated hallucinations, split-brain risk, and new operational dependencies. RootSpan still needs a credible agent-native workflow without weakening its evidence and human-authority invariants.
+
+### Decision
+
+Run a logical Sentinel Mesh inside the existing modular monolith. Each live incident elects one leader through an atomic SQLite lease and delegates bounded read-only observations to gateway, checkout, inventory, and database sentinels. Followers execute concurrently, return typed findings and evidence references, and never score or remediate. Failed leaders transfer coordination to a healthy follower by advancing the lease generation; failed followers remain visible as degraded results.
+
+The initial sentinel policy is deterministic and autonomous. A future model planner may select among the same schema-limited capabilities, but leader election, evidence existence, scoring, abstention, and production authority remain deterministic.
+
+### Consequences
+
+- The project gains an observable multi-agent workflow without adding deployed services, a queue, or a model dependency.
+- Sentinel leadership and failover are reproducible, persisted, and testable without wall-clock sleeps or external systems.
+- One failing observer does not erase healthy findings; total mesh failure stops the investigation safely.
+- SigNoz receives stable spans for election, delegation, observation, and failover.
+- The console can show which systems were observed, which sentinel led, and whether coverage degraded.
