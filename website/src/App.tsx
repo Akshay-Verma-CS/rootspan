@@ -38,6 +38,7 @@ import {
   architectureStages,
   documentBySlug,
   documents,
+  judgeSteps,
   type ProjectDocument,
   searchDocuments,
 } from "./content";
@@ -154,6 +155,7 @@ function SiteHeader() {
         <BrandMark />
       </a>
       <nav className={menuOpen ? "site-nav is-open" : "site-nav"} aria-label="Primary navigation">
+        <button type="button" onClick={() => navigate("judge-route")}>Judge route</button>
         <button type="button" onClick={() => navigate("system")}>System</button>
         <button type="button" onClick={() => navigate("sentinels")}>Sentinels</button>
         <button type="button" onClick={() => navigate("protocol")}>Protocol</button>
@@ -206,8 +208,8 @@ function Hero() {
           and ranks the earliest local divergence before the error cascade hides it.
         </p>
         <div className="hero-actions">
-          <button className="cyber-button primary" type="button" onClick={() => scrollToSection("system")}>
-            Explore the system <ArrowRight size={17} aria-hidden="true" />
+          <button className="cyber-button primary" type="button" onClick={() => scrollToSection("judge-route")}>
+            Start the judge route <ArrowRight size={17} aria-hidden="true" />
           </button>
           <button className="cyber-button ghost" type="button" onClick={() => openDocument("overview")}>
             <BookOpen size={17} aria-hidden="true" /> Read the docs
@@ -241,12 +243,12 @@ function Hero() {
           <div className="console-score">
             <div>
               <span>EVIDENCE GRADE</span>
-              <strong>A</strong>
+              <strong>HIGH</strong>
             </div>
             <div className="score-bars">
               <i /><i /><i /><i /><i className="dim" />
             </div>
-            <small>12 supporting / 1 contradicting</small>
+            <small>9 stored evidence records</small>
           </div>
           <div className="console-footer">
             <span><RadioTower size={14} /> 4 SENTINELS ONLINE</span>
@@ -275,6 +277,54 @@ function MetricStrip() {
           <span>{label}</span>
         </div>
       ))}
+    </section>
+  );
+}
+
+function JudgeRoute() {
+  return (
+    <section className="section judge-route" id="judge-route" aria-labelledby="judge-route-title">
+      <div className="judge-route-heading">
+        <div>
+          <SectionLabel>Judge mode / 60 seconds</SectionLabel>
+          <h2 id="judge-route-title">Follow one claim<br /><span>all the way to proof.</span></h2>
+        </div>
+        <div className="judge-route-intro">
+          <p>
+            RootSpan is easiest to evaluate as one evidence journey. Start at the misleading alert,
+            inspect the deterministic comparison, then verify the human handoff.
+          </p>
+          <button type="button" onClick={() => openDocument("demo")}>
+            Open the full demo script <ArrowRight size={15} aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+
+      <ol className="judge-steps">
+        {judgeSteps.map((step, index) => (
+          <li className={`judge-step judge-step-${step.id}`} key={step.id}>
+            <div className="judge-step-topline">
+              <span>{step.index}</span>
+              <i aria-hidden="true" />
+            </div>
+            <small>{step.label}</small>
+            <strong>{step.value}</strong>
+            <p>{step.detail}</p>
+            {index < judgeSteps.length - 1 && <ChevronRight aria-hidden="true" />}
+          </li>
+        ))}
+      </ol>
+
+      <div className="judge-verdict">
+        <ShieldCheck aria-hidden="true" />
+        <div>
+          <span>WHAT TO VERIFY</span>
+          <strong>The loudest service is not ranked first; the earliest local divergence is.</strong>
+        </div>
+        <button type="button" onClick={() => scrollToSection("system")}>
+          Inspect the architecture <ArrowRight size={15} aria-hidden="true" />
+        </button>
+      </div>
     </section>
   );
 }
@@ -451,10 +501,10 @@ function EvidenceProtocol() {
         </div>
         <pre><code>{`{
   "first_divergence": "inventory.reserve",
-  "evidence_grade": "A",
-  "supporting_evidence": 12,
-  "contradicting_evidence": 1,
-  "coverage": { "healthy": 10, "failing": 10 },
+  "evidence_grade": "high",
+  "evidence_records": 9,
+  "supporting_signals": ["trace", "log", "metric", "change"],
+  "coverage": { "healthy": 5, "failing": 5 },
   "authority": "human_responder"
 }`}</code></pre>
         <div className="code-annotation">
@@ -730,6 +780,7 @@ function LandingPage() {
       <main id="main-content">
         <Hero />
         <MetricStrip />
+        <JudgeRoute />
         <SystemArchitecture />
         <SentinelMesh />
         <EvidenceProtocol />

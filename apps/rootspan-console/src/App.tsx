@@ -25,6 +25,7 @@ import {
 
 import { listIncidents, replayGoldenIncident, runLiveIncident } from "./api";
 import { compactTime, percent, ratio, shortId } from "./format";
+import { buildDecisionTrail } from "./journey";
 import type { DivergenceCandidate, Evidence, IncidentBrief } from "./types";
 
 function scorePercent(candidate: DivergenceCandidate): string {
@@ -77,6 +78,7 @@ function App() {
 
   return (
     <div className="app-shell">
+      <a className="skip-link" href="#incident-content">Skip to incident brief</a>
       <TopBar
         incident={incident}
         incidents={incidents}
@@ -88,8 +90,9 @@ function App() {
         onLive={() => liveMutation.mutate()}
       />
       {liveMutation.error && <div className="error-message top-error">{liveMutation.error.message}</div>}
-      <main>
+      <main id="incident-content">
         <IncidentHero incident={incident} />
+        <DecisionTrail incident={incident} />
         <div className="primary-grid">
           <ServiceCascade incident={incident} />
           <CandidatePanel incident={incident} />
@@ -152,11 +155,11 @@ function TopBar({
         </select>
         <button className="button secondary" onClick={onReplay} disabled={isPending}>
           {isPending ? <RefreshCw className="spin" size={16} /> : <Play size={16} />}
-          Replay incident
+          {isPending ? "Replaying…" : "Replay incident"}
         </button>
         <button className="button primary" onClick={onLive} disabled={isLivePending}>
           {isLivePending ? <RefreshCw className="spin" size={16} /> : <Activity size={16} />}
-          Investigate live
+          {isLivePending ? "Collecting…" : "Investigate live"}
         </button>
       </div>
     </header>
@@ -178,14 +181,41 @@ function IncidentHero({ incident }: { incident: IncidentBrief }) {
         </div>
       </div>
       <div className="confidence-card">
-        <span>Evidence confidence</span>
+        <span>Evidence grade</span>
         <strong>{incident.confidence_label}</strong>
         <div className="confidence-ring" style={{ "--score": `${(top?.score ?? 0) * 360}deg` } as CSSProperties}>
-          <div>{top ? scorePercent(top) : "—"}<small>score</small></div>
+          <div>{top ? scorePercent(top) : "—"}<small>ranking score</small></div>
         </div>
-        <p>Transparent evidence grade, not a calibrated probability.</p>
+        <p>Inspectable ranking signal, not a calibrated probability.</p>
       </div>
     </section>
+  );
+}
+
+function DecisionTrail({ incident }: { incident: IncidentBrief }) {
+  const steps = buildDecisionTrail(incident);
+  return (
+    <nav className="decision-trail" aria-label="Incident evidence journey">
+      <div className="decision-trail-label">
+        <span>Decision trail</span>
+        <strong>Follow the claim to its evidence</strong>
+      </div>
+      <ol>
+        {steps.map((step, index) => (
+          <li className={`decision-step ${step.state}`} key={step.id}>
+            <a href={step.href}>
+              <span className="decision-index">0{index + 1}</span>
+              <div>
+                <small>{step.label}</small>
+                <strong>{step.value}</strong>
+                <p>{step.detail}</p>
+              </div>
+              <ChevronRight size={17} aria-hidden="true" />
+            </a>
+          </li>
+        ))}
+      </ol>
+    </nav>
   );
 }
 
@@ -199,7 +229,7 @@ function ServiceCascade({ incident }: { incident: IncidentBrief }) {
   ];
   const topService = incident.ranked_candidates[0]?.service;
   return (
-    <section className="panel cascade-panel">
+    <section className="panel cascade-panel" id="service-cascade">
       <PanelHeader icon={<Activity size={17} />} title="Service cascade" meta="earliest local divergence" />
       <div className="cascade">
         {services.map((service, index) => {
@@ -227,7 +257,7 @@ function ServiceCascade({ incident }: { incident: IncidentBrief }) {
 
 function CandidatePanel({ incident }: { incident: IncidentBrief }) {
   return (
-    <section className="panel candidates-panel">
+    <section className="panel candidates-panel" id="ranked-hypotheses">
       <PanelHeader icon={<Gauge size={17} />} title="Ranked hypotheses" meta="inspectable score" />
       <div className="candidate-list">
         {incident.ranked_candidates.slice(0, 4).map((candidate) => (
@@ -255,7 +285,7 @@ function CohortComparison({ incident }: { incident: IncidentBrief }) {
     { label: "Local / self duration", healthy: "1.0× baseline", failing: ratio(top.exclusive_duration_ratio), width: Math.min(top.exclusive_duration_ratio * 4, 100) },
   ];
   return (
-    <section className="panel cohort-panel">
+    <section className="panel cohort-panel" id="cohort-comparison">
       <PanelHeader
         icon={<Layers3 size={17} />}
         title="Healthy vs failing cohorts"
@@ -287,7 +317,7 @@ function SentinelMeshPanel({ incident }: { incident: IncidentBrief }) {
   const mesh = incident.sentinel_mesh;
   if (!mesh) return null;
   return (
-    <section className="panel sentinel-panel">
+    <section className="panel sentinel-panel" id="sentinel-mesh">
       <PanelHeader
         icon={<RadioTower size={17} />}
         title="Sentinel mesh"
@@ -341,7 +371,7 @@ function EvidencePanel({ incident }: { incident: IncidentBrief }) {
   const relevantIds = new Set([...(top?.supporting_evidence_ids ?? []), ...(top?.contradicting_evidence_ids ?? [])]);
   const evidence = incident.evidence.filter((item) => relevantIds.has(item.id));
   return (
-    <section className="panel evidence-panel">
+    <section className="panel evidence-panel" id="evidence-ledger">
       <PanelHeader icon={<Search size={17} />} title="Evidence ledger" meta="every claim is linked" />
       <div className="evidence-list">
         {evidence.map((item) => <EvidenceRow key={item.id} evidence={item} />)}
@@ -364,7 +394,7 @@ function EvidenceRow({ evidence }: { evidence: Evidence }) {
 function BlastRadius({ incident }: { incident: IncidentBrief }) {
   const maxPercentage = Math.max(...incident.blast_radius.map((item) => item.percentage), 1);
   return (
-    <section className="panel blast-panel">
+    <section className="panel blast-panel" id="blast-radius">
       <PanelHeader icon={<Gauge size={17} />} title="Blast radius" meta="affected / total" />
       <div className="blast-list">
         {incident.blast_radius.map((slice) => (
@@ -381,7 +411,7 @@ function BlastRadius({ incident }: { incident: IncidentBrief }) {
 
 function Timeline({ incident }: { incident: IncidentBrief }) {
   return (
-    <section className="panel timeline-panel">
+    <section className="panel timeline-panel" id="incident-timeline">
       <PanelHeader icon={<Clock3 size={17} />} title="Incident timeline" meta="change → divergence → alert" />
       <div className="timeline">
         {incident.timeline.map((event, index) => (
@@ -399,7 +429,7 @@ function Timeline({ incident }: { incident: IncidentBrief }) {
 
 function NextQueries({ incident }: { incident: IncidentBrief }) {
   return (
-    <section className="panel query-panel">
+    <section className="panel query-panel" id="responder-handoff">
       <PanelHeader icon={<TerminalSquare size={17} />} title="Responder handoff" meta="read-only next steps" />
       <div className="query-list">
         {incident.next_queries.map((query, index) => (

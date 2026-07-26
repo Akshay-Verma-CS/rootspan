@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { architectureStages, documentBySlug, documents, searchDocuments } from "./content";
+import {
+  architectureStages,
+  documentBySlug,
+  documents,
+  judgeSteps,
+  searchDocuments,
+} from "./content";
 
 describe("project document catalog", () => {
   it("publishes every repository guide with a unique route", () => {
@@ -31,5 +37,17 @@ describe("architecture narrative", () => {
       "handoff",
     ]);
     expect(architectureStages.every((stage) => stage.detail.length > 40)).toBe(true);
+  });
+
+  it("gives judges a complete evidence journey in presentation order", () => {
+    expect(judgeSteps.map((step) => step.id)).toEqual([
+      "signal",
+      "compare",
+      "locate",
+      "handoff",
+    ]);
+    expect(judgeSteps[1].value).toContain("healthy");
+    expect(judgeSteps[2].value).toBe("inventory.reserve");
+    expect(judgeSteps[3].detail).toContain("human-owned");
   });
 });

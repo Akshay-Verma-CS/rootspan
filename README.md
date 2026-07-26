@@ -29,7 +29,7 @@ The current build includes:
 - a persisted incident state machine, fingerprint-idempotent SigNoz webhook, and SSE progress feed;
 - an incident-scoped Sentinel Mesh with SQLite leader leases, bounded parallel delegation, follower degradation, and deterministic leader failover;
 - a versioned FastAPI replay/live API with SQLite persistence;
-- a responsive React responder console served by Nginx;
+- a responsive React responder console with a decision trail from upstream symptom to cited human handoff, served by Nginx;
 - a three-service OpenTelemetry incident lab with a scoped, resettable inventory timeout;
 - a local collector bridge that exports lab traces, logs, metrics, and RootSpan stage spans into SigNoz;
 - idempotent bootstrap of a Viewer-only runtime key, webhook channel, error-rate alert, and incident dashboard;
@@ -117,7 +117,7 @@ Project documents:
 
 ## Project website
 
-The static product and architecture website lives in [`website/`](website/README.md). It presents the system architecture, Sentinel Mesh, evidence protocol, and every repository guide through a searchable cyberpunk-inspired document reader. The source Markdown is imported at build time, so the website and repository documentation cannot silently drift.
+The static product and architecture website lives in [`website/`](website/README.md). It opens with a judge-oriented 60-second evidence route, then presents the system architecture, Sentinel Mesh, evidence protocol, and every repository guide through a searchable cyberpunk-inspired document reader. The source Markdown is imported at build time, so the website and repository documentation cannot silently drift.
 
 ```sh
 pnpm --dir website install

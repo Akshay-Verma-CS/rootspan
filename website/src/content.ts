@@ -29,6 +29,45 @@ export interface ArchitectureStage {
   tone: "cyan" | "yellow" | "magenta";
 }
 
+export interface JudgeStep {
+  id: "signal" | "compare" | "locate" | "handoff";
+  index: string;
+  label: string;
+  value: string;
+  detail: string;
+}
+
+export const judgeSteps: readonly JudgeStep[] = [
+  {
+    id: "signal",
+    index: "01",
+    label: "Start with impact",
+    value: "Checkout SLO burn",
+    detail: "The alert is the loud upstream symptom, not a root-cause claim.",
+  },
+  {
+    id: "compare",
+    index: "02",
+    label: "Compare cohorts",
+    value: "5 healthy / 5 failing",
+    detail: "Matched trace trees expose what changed without relying on one noisy trace.",
+  },
+  {
+    id: "locate",
+    index: "03",
+    label: "Find local truth",
+    value: "inventory.reserve",
+    detail: "Attribution removes propagated parent time and ranks the first local divergence.",
+  },
+  {
+    id: "handoff",
+    index: "04",
+    label: "Verify and decide",
+    value: "9 evidence records",
+    detail: "Every claim stays linked to provenance; every production action stays human-owned.",
+  },
+] as const;
+
 export const architectureStages: readonly ArchitectureStage[] = [
   {
     id: "impact",

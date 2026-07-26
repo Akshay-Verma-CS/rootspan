@@ -9,8 +9,8 @@ The website imports the repository's Markdown at build time rather than maintain
 - `README.md` is the product overview;
 - every file under `docs/` is available in the searchable document explorer;
 - `AGENTS.md` is published as the repository contract;
-- `src/content.ts` owns display metadata and stable document routes;
-- `src/App.tsx` owns the product narrative, system map, Sentinel Mesh, evidence protocol, and document reader.
+- `src/content.ts` owns display metadata, the four-step judge route, and stable document routes;
+- `src/App.tsx` owns the product narrative, 60-second evidence walkthrough, system map, Sentinel Mesh, evidence protocol, and document reader.
 
 Markdown is bundled into the static JavaScript artifact. GitHub Pages does not need an application server, database, runtime secret, or production telemetry credential.
 
