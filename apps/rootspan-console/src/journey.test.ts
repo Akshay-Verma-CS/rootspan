@@ -76,7 +76,10 @@ describe("decision trail", () => {
       value: "inventory.reserve",
       state: "attention",
     });
-    expect(stepById(steps, "handoff").value).toBe("9 linked records");
+    expect(stepById(steps, "handoff")).toMatchObject({
+      value: "9 linked records",
+      page: "evidence",
+    });
   });
 
   it("makes insufficient evidence an explicit safe outcome", () => {

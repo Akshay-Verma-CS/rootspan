@@ -78,12 +78,13 @@ Use OTLP for traces, metrics, and logs. The lab still emits structured JSON bodi
 - React + TypeScript + Vite.
 - pnpm with a lockfile.
 - TanStack Query for API state.
-- CSS-native service cascade, cohort comparison, evidence ledger, blast radius, and timeline.
+- Recharts for bounded, evidence-derived candidate, cohort, evidence-mix, duration, and blast-radius plots.
+- CSS-native service cascade, evidence ledger, incident picker, workspace pagination, and timeline.
 - Vitest for component logic plus production-proxy desktop/mobile browser smoke checks.
 
-The API exposes both persisted progress snapshots and SSE. The console stays dependency-light and does not carry React Flow or ECharts.
+The API exposes both persisted progress snapshots and SSE. The console remains a custom responder surface and does not carry React Flow, ECharts, or a generic dashboard framework. Every plotted value is derived from the persisted incident brief; a time-series chart must remain absent until the domain and gateway contracts expose verified metric samples.
 
-Use a custom visual system with a single incident screen. Do not spend the sprint assembling a generic dashboard framework.
+Use a custom visual system with one incident workspace paginated into Overview, Telemetry, Evidence, and Handoff. Do not spend the sprint assembling a generic dashboard framework.
 
 ### AI layer
 

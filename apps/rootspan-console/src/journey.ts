@@ -5,7 +5,7 @@ export interface DecisionTrailStep {
   label: string;
   value: string;
   detail: string;
-  href: string;
+  page: "telemetry" | "evidence";
   state: "observed" | "verified" | "attention" | "safe";
 }
 
@@ -19,7 +19,7 @@ export function buildDecisionTrail(incident: IncidentBrief): readonly DecisionTr
       label: "Upstream symptom",
       value: "Checkout SLO burn",
       detail: "Observed impact; not treated as the root cause.",
-      href: "#service-cascade",
+      page: "telemetry",
       state: "observed",
     },
     {
@@ -31,7 +31,7 @@ export function buildDecisionTrail(incident: IncidentBrief): readonly DecisionTr
       detail: hasComparableCohorts
         ? `${Math.round(incident.cohort.coverage * 100)}% usable cohort coverage.`
         : "The comparison boundary failed safely.",
-      href: hasComparableCohorts ? "#cohort-comparison" : "#incident-content",
+      page: "telemetry",
       state: hasComparableCohorts ? "verified" : "attention",
     },
     {
@@ -41,7 +41,7 @@ export function buildDecisionTrail(incident: IncidentBrief): readonly DecisionTr
       detail: top
         ? `${top.evidence_grade} evidence · ${Math.round(top.local_attribution * 100)}% local attribution.`
         : "No ranked guess was produced without evidence.",
-      href: top ? "#ranked-hypotheses" : "#incident-content",
+      page: "telemetry",
       state: top ? "attention" : "safe",
     },
     {
@@ -49,7 +49,7 @@ export function buildDecisionTrail(incident: IncidentBrief): readonly DecisionTr
       label: "Responder packet",
       value: `${incident.metrics.evidence_count} linked records`,
       detail: "Raw evidence remains inspectable; production authority remains human.",
-      href: "#evidence-ledger",
+      page: "evidence",
       state: "safe",
     },
   ];
